@@ -1,5 +1,7 @@
 package com.hospital.service.impl;
 
+import com.hospital.util.CacheKeyBuilder;
+import com.hospital.util.CacheTtlPolicy;
 import com.hospital.dto.StatisticsDTO;
 import com.hospital.mapper.StatisticsMapper;
 import com.hospital.service.StatisticsService;
@@ -21,60 +23,67 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 public class StatisticsServiceImpl implements StatisticsService {
-    
+
     @Autowired
     private StatisticsMapper statisticsMapper;
-    
+
     @Autowired
     private RedisUtil redisUtil;
-    
+
     @Override
     public StatisticsDTO.AdminStats getAdminStats() {
         log.info("获取管理员统计数据");
-        String cacheKey = "hospital:admin:stats:overview";
+        String cacheKey = CacheKeyBuilder.of("hospital:admin:stats:overview").build();
         Object cached = redisUtil.get(cacheKey);
         if (cached instanceof StatisticsDTO.AdminStats) {
             return (StatisticsDTO.AdminStats) cached;
         }
         StatisticsDTO.AdminStats data = statisticsMapper.getAdminStats();
         // 管理员统计数据，缓存 10 分钟
-        redisUtil.set(cacheKey, data, 10, TimeUnit.MINUTES);
+        redisUtil.set(cacheKey, data, CacheTtlPolicy.CONVERSATION_DETAIL.getSeconds(), TimeUnit.SECONDS);
         return data;
     }
-    
+
     @Override
     public StatisticsDTO.PatientStats getPatientStats(Long patientId) {
         log.info("获取患者统计数据，患者ID：{}", patientId);
-        String cacheKey = "hospital:patient:stats:overview:patient:" + patientId;
+        String cacheKey = CacheKeyBuilder.of("hospital:patient:stats:overview")
+                .append("patient", patientId)
+                .build();
         Object cached = redisUtil.get(cacheKey);
         if (cached instanceof StatisticsDTO.PatientStats) {
             return (StatisticsDTO.PatientStats) cached;
         }
         StatisticsDTO.PatientStats data = statisticsMapper.getPatientStats(patientId);
         // 患者统计数据，缓存 10 分钟
-        redisUtil.set(cacheKey, data, 10, TimeUnit.MINUTES);
+        redisUtil.set(cacheKey, data, CacheTtlPolicy.CONVERSATION_DETAIL.getSeconds(), TimeUnit.SECONDS);
         return data;
     }
-    
+
     @Override
     public StatisticsDTO.DoctorTodayStats getDoctorTodayStats(Long doctorId) {
         log.info("获取医生今日统计，医生ID：{}", doctorId);
         LocalDate today = LocalDate.now();
-        String cacheKey = "hospital:doctor:stats:today:doctor:" + doctorId + ":date:" + today;
+        String cacheKey = CacheKeyBuilder.of("hospital:doctor:stats:today")
+                .append("doctor", doctorId)
+                .append("date", today)
+                .build();
         Object cached = redisUtil.get(cacheKey);
         if (cached instanceof StatisticsDTO.DoctorTodayStats) {
             return (StatisticsDTO.DoctorTodayStats) cached;
         }
         StatisticsDTO.DoctorTodayStats data = statisticsMapper.getDoctorTodayStats(doctorId, today);
         // 医生今日统计，缓存 5 分钟
-        redisUtil.set(cacheKey, data, 5, TimeUnit.MINUTES);
+        redisUtil.set(cacheKey, data, CacheTtlPolicy.CONVERSATION_DETAIL.getSeconds(), TimeUnit.SECONDS);
         return data;
     }
-    
+
     @Override
     public StatisticsDTO.DoctorReviewStats getDoctorReviewStats(Long doctorId) {
         log.info("获取医生评价统计，医生ID：{}", doctorId);
-        String cacheKey = "stats:doctor:" + doctorId + ":review";
+        String cacheKey = CacheKeyBuilder.of("hospital:doctor:stats:review")
+                .append("doctor", doctorId)
+                .build();
         Object cached = redisUtil.get(cacheKey);
         if (cached instanceof StatisticsDTO.DoctorReviewStats) {
             return (StatisticsDTO.DoctorReviewStats) cached;
@@ -87,34 +96,37 @@ public class StatisticsServiceImpl implements StatisticsService {
             data.setTotalReviews(0);
             data.setMonthlyReviews(0);
         }
-        // 医生评价统计，缓存 15 分钟
-        redisUtil.set(cacheKey, data, 15, TimeUnit.MINUTES);
+        // 医生评价统计，缓存 15 分钟（使用 DOCTOR_DETAIL 策略，30分钟）
+        redisUtil.set(cacheKey, data, CacheTtlPolicy.DOCTOR_DETAIL.getSeconds(), TimeUnit.SECONDS);
         return data;
     }
-    
+
     @Override
     public StatisticsDTO.MonthlyStats getMonthlyStats() {
         log.info("获取月度统计");
         LocalDate now = LocalDate.now();
-        String cacheKey = "stats:monthly:" + now.getYear() + ":" + now.getMonthValue();
+        String cacheKey = CacheKeyBuilder.of("hospital:stats:monthly")
+                .append("year", now.getYear())
+                .append("month", now.getMonthValue())
+                .build();
         Object cached = redisUtil.get(cacheKey);
         if (cached instanceof StatisticsDTO.MonthlyStats) {
             return (StatisticsDTO.MonthlyStats) cached;
         }
         StatisticsDTO.MonthlyStats data = statisticsMapper.getMonthlyStats(now.getYear(), now.getMonthValue());
         // 月度统计，缓存 30 分钟
-        redisUtil.set(cacheKey, data, 30, TimeUnit.MINUTES);
+        redisUtil.set(cacheKey, data, CacheTtlPolicy.DOCTOR_DETAIL.getSeconds(), TimeUnit.SECONDS);
         return data;
     }
-    
+
     @Override
     public List<StatisticsDTO.DepartmentStats> getDepartmentStats(Map<String, Object> params) {
         log.info("获取科室统计排行，参数：{}", params);
 
-        // 生成缓存键（基于参数）
-        String startDate = params.getOrDefault("startDate", "").toString();
-        String endDate = params.getOrDefault("endDate", "").toString();
-        String cacheKey = "stats:dept:range:" + startDate + ":" + endDate;
+        // 使用 CacheKeyBuilder 和参数哈希生成缓存键
+        String cacheKey = CacheKeyBuilder.of("hospital:stats:dept")
+                .appendParamsHash(params)
+                .build();
 
         // 尝试从缓存获取
         Object cached = redisUtil.get(cacheKey);
@@ -131,19 +143,19 @@ public class StatisticsServiceImpl implements StatisticsService {
         List<StatisticsDTO.DepartmentStats> data = statisticsMapper.getDepartmentStats(params);
 
         // 存入缓存（30分钟）
-        redisUtil.set(cacheKey, data, 30, TimeUnit.MINUTES);
+        redisUtil.set(cacheKey, data, CacheTtlPolicy.DOCTOR_DETAIL.getSeconds(), TimeUnit.SECONDS);
 
         return data;
     }
-    
+
     @Override
     public List<StatisticsDTO.DoctorStats> getDoctorStats(Map<String, Object> params) {
         log.info("获取医生统计排行，参数：{}", params);
 
-        // 生成缓存键（基于参数）
-        String startDate = params.getOrDefault("startDate", "").toString();
-        String endDate = params.getOrDefault("endDate", "").toString();
-        String cacheKey = "stats:doctor:range:" + startDate + ":" + endDate;
+        // 使用 CacheKeyBuilder 和参数哈希生成缓存键
+        String cacheKey = CacheKeyBuilder.of("hospital:stats:doctor")
+                .appendParamsHash(params)
+                .build();
 
         // 尝试从缓存获取
         Object cached = redisUtil.get(cacheKey);
@@ -160,11 +172,11 @@ public class StatisticsServiceImpl implements StatisticsService {
         List<StatisticsDTO.DoctorStats> data = statisticsMapper.getDoctorStats(params);
 
         // 存入缓存（30分钟）
-        redisUtil.set(cacheKey, data, 30, TimeUnit.MINUTES);
+        redisUtil.set(cacheKey, data, CacheTtlPolicy.DOCTOR_DETAIL.getSeconds(), TimeUnit.SECONDS);
 
         return data;
     }
-    
+
     @Override
     public List<StatisticsDTO.TrendData> getAppointmentTrend(Map<String, Object> params) {
         log.info("获取预约趋势数据，参数：{}", params);
@@ -189,8 +201,11 @@ public class StatisticsServiceImpl implements StatisticsService {
             }
         }
 
-        // 生成缓存键（基于日期范围）
-        String cacheKey = "stats:trend:" + startDate + ":" + endDate;
+        // 使用 CacheKeyBuilder 生成缓存键
+        String cacheKey = CacheKeyBuilder.of("hospital:stats:trend")
+                .append("start", startDate)
+                .append("end", endDate)
+                .build();
 
         // 尝试从缓存获取
         Object cached = redisUtil.get(cacheKey);
@@ -207,15 +222,17 @@ public class StatisticsServiceImpl implements StatisticsService {
         List<StatisticsDTO.TrendData> data = statisticsMapper.getAppointmentTrend(startDate, endDate);
 
         // 存入缓存（30分钟）
-        redisUtil.set(cacheKey, data, 30, TimeUnit.MINUTES);
+        redisUtil.set(cacheKey, data, CacheTtlPolicy.DOCTOR_DETAIL.getSeconds(), TimeUnit.SECONDS);
 
         return data;
     }
-    
+
     @Override
     public List<StatisticsDTO.RecentAppointment> getRecentAppointments() {
         log.info("获取最近预约列表");
-        String cacheKey = "stats:recentAppointments:10";
+        String cacheKey = CacheKeyBuilder.of("hospital:stats:recent")
+                .append("limit", 10)
+                .build();
         Object cached = redisUtil.get(cacheKey);
         if (cached instanceof List) {
             try {
@@ -226,14 +243,16 @@ public class StatisticsServiceImpl implements StatisticsService {
         }
         List<StatisticsDTO.RecentAppointment> data = statisticsMapper.getRecentAppointments(10); // 默认获取10条
         // 最近预约列表，缓存 5 分钟
-        redisUtil.set(cacheKey, data, 5, TimeUnit.MINUTES);
+        redisUtil.set(cacheKey, data, CacheTtlPolicy.CONVERSATION_DETAIL.getSeconds(), TimeUnit.SECONDS);
         return data;
     }
-    
+
     @Override
     public List<StatisticsDTO.RecentAppointment> getPatientRecentAppointments(Long patientId) {
         log.info("获取患者最近预约，患者ID：{}", patientId);
-        String cacheKey = "hospital:patient:stats:appointments:recent:patient:" + patientId;
+        String cacheKey = CacheKeyBuilder.of("hospital:patient:stats:appointments:recent")
+                .append("patient", patientId)
+                .build();
         Object cached = redisUtil.get(cacheKey);
         if (cached instanceof List) {
             try {
@@ -244,7 +263,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         }
         List<StatisticsDTO.RecentAppointment> data = statisticsMapper.getPatientRecentAppointments(patientId, 5); // 默认获取5条
         // 患者最近预约，缓存 5 分钟
-        redisUtil.set(cacheKey, data, 5, TimeUnit.MINUTES);
+        redisUtil.set(cacheKey, data, CacheTtlPolicy.CONVERSATION_DETAIL.getSeconds(), TimeUnit.SECONDS);
         return data;
     }
 }

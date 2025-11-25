@@ -11,9 +11,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 全局异常处理器
+ * 支持业务场景分类与可观测日志字段（traceId）
  *
  * @author Hospital Team
  * @since 2025-10-24
@@ -23,12 +25,24 @@ import java.util.List;
 public class GlobalExceptionHandler {
 
     /**
+     * 生成追踪ID
+     */
+    private String generateTraceId() {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+    }
+
+    /**
      * 处理业务异常
      */
     @ExceptionHandler(BusinessException.class)
     public Result<Void> handleBusinessException(BusinessException e, HttpServletRequest request) {
-        log.error("业务异常: URI={}, Code={}, Message={}", 
-                request.getRequestURI(), e.getCode(), e.getMessage());
+        String traceId = generateTraceId();
+        String uri = request.getRequestURI();
+        String method = request.getMethod();
+        
+        log.error("业务异常 [traceId={}, method={}, uri={}, code={}, message={}]", 
+                traceId, method, uri, e.getCode(), e.getMessage(), e);
+        
         return Result.error(e.getCode(), e.getMessage());
     }
 
@@ -52,6 +66,10 @@ public class GlobalExceptionHandler {
      * 统一处理字段错误
      */
     private Result<Void> handleFieldErrors(List<FieldError> fieldErrors, HttpServletRequest request, String errorType) {
+        String traceId = generateTraceId();
+        String uri = request.getRequestURI();
+        String method = request.getMethod();
+        
         StringBuilder errorMessage = new StringBuilder();
         for (FieldError error : fieldErrors) {
             errorMessage.append(error.getField())
@@ -59,7 +77,10 @@ public class GlobalExceptionHandler {
                     .append(error.getDefaultMessage())
                     .append("; ");
         }
-        log.error("{}: URI={}, Message={}", errorType, request.getRequestURI(), errorMessage);
+        
+        log.error("{} [traceId={}, method={}, uri={}, message={}]", 
+                errorType, traceId, method, uri, errorMessage);
+        
         return Result.error(ResultCode.BAD_REQUEST.getCode(), errorMessage.toString());
     }
 
@@ -68,8 +89,27 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(NullPointerException.class)
     public Result<Void> handleNullPointerException(NullPointerException e, HttpServletRequest request) {
-        log.error("空指针异常: URI={}", request.getRequestURI(), e);
+        String traceId = generateTraceId();
+        String uri = request.getRequestURI();
+        String method = request.getMethod();
+        
+        log.error("空指针异常 [traceId={}, method={}, uri={}]", traceId, method, uri, e);
         return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), "系统内部错误");
+    }
+
+    /**
+     * 处理非法参数异常
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public Result<Void> handleIllegalArgumentException(IllegalArgumentException e, HttpServletRequest request) {
+        String traceId = generateTraceId();
+        String uri = request.getRequestURI();
+        String method = request.getMethod();
+        
+        log.error("非法参数异常 [traceId={}, method={}, uri={}, message={}]", 
+                traceId, method, uri, e.getMessage(), e);
+        
+        return Result.error(ResultCode.PARAM_ERROR.getCode(), e.getMessage());
     }
 
     /**
@@ -77,8 +117,14 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public Result<Void> handleException(Exception e, HttpServletRequest request) {
-        log.error("系统异常: URI={}", request.getRequestURI(), e);
-        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), "系统错误: " + e.getMessage());
+        String traceId = generateTraceId();
+        String uri = request.getRequestURI();
+        String method = request.getMethod();
+        
+        log.error("系统异常 [traceId={}, method={}, uri={}, exception={}, message={}]", 
+                traceId, method, uri, e.getClass().getSimpleName(), e.getMessage(), e);
+        
+        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), "系统错误，请稍后重试");
     }
 }
 

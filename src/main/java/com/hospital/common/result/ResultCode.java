@@ -86,7 +86,41 @@ public enum ResultCode {
     DB_QUERY_ERROR(2001, "数据查询失败"),
     DB_INSERT_ERROR(2002, "数据插入失败"),
     DB_UPDATE_ERROR(2003, "数据更新失败"),
-    DB_DELETE_ERROR(2004, "数据删除失败");
+    DB_DELETE_ERROR(2004, "数据删除失败"),
+    
+    // 缓存相关 (2100-2199)
+    CACHE_ERROR(2101, "缓存操作失败"),
+    CACHE_KEY_NOT_FOUND(2102, "缓存键不存在"),
+    
+    // 体质测试相关 (1800-1899)
+    CONSTITUTION_TEST_NOT_FOUND(1801, "体质测试记录不存在"),
+    CONSTITUTION_TEST_INCOMPLETE(1802, "体质测试未完成"),
+    CONSTITUTION_TYPE_NOT_FOUND(1803, "体质类型不存在"),
+    
+    // 药膳相关 (1900-1999)
+    RECIPE_NOT_FOUND(1901, "药膳不存在"),
+    RECIPE_ALREADY_COLLECTED(1902, "药膳已收藏"),
+    RECIPE_NOT_COLLECTED(1903, "药膳未收藏"),
+    
+    // 文章相关 (2000-2099)
+    ARTICLE_NOT_FOUND(2001, "文章不存在"),
+    ARTICLE_PUBLISH_FAILED(2002, "文章发布失败"),
+    
+    // 健康打卡相关 (2200-2299)
+    HEALTH_CHECKIN_NOT_FOUND(2201, "健康打卡记录不存在"),
+    HEALTH_CHECKIN_ALREADY_EXISTS(2202, "今日已打卡"),
+    
+    // 统计相关 (2300-2399)
+    STATISTICS_QUERY_ERROR(2301, "统计数据查询失败"),
+    
+    // 文件上传相关 (2400-2499)
+    FILE_UPLOAD_ERROR(2401, "文件上传失败"),
+    FILE_TYPE_NOT_SUPPORTED(2402, "不支持的文件类型"),
+    FILE_SIZE_EXCEEDED(2403, "文件大小超出限制"),
+    
+    // AI推荐相关 (2500-2599)
+    AI_RECOMMENDATION_ERROR(2501, "AI推荐失败"),
+    AI_SERVICE_UNAVAILABLE(2502, "AI服务暂不可用");
 
     /**
      * 状态码

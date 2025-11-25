@@ -1,6 +1,5 @@
 package com.hospital.service.impl;
 
-import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.hospital.common.constant.SystemSettingKeys;
@@ -18,6 +17,7 @@ import com.hospital.entity.Doctor;
 import com.hospital.entity.User;
 import com.hospital.mapper.AppointmentMapper;
 import com.hospital.mapper.DoctorMapper;
+import com.hospital.mapper.DtoMapper;
 import com.hospital.mapper.UserMapper;
 import com.hospital.config.OssConfig;
 import com.hospital.service.OssService;
@@ -53,9 +53,12 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserMapper userMapper;
-    
+
     @Autowired
     private DoctorMapper doctorMapper;
+
+    @Autowired
+    private DtoMapper dtoMapper;
 
     @Autowired
     private AppointmentMapper appointmentMapper;
@@ -98,7 +101,9 @@ public class UserServiceImpl implements UserService {
     @Override
     public Result<LoginResponse> login(LoginRequest request) {
         // 1. 根据用户名查询用户
-        User user = userMapper.selectByUsername(request.getUsername());
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("username", request.getUsername());
+        User user = userMapper.selectOne(queryWrapper);
         if (user == null) {
             return Result.error(ResultCode.USERNAME_OR_PASSWORD_ERROR);
         }
@@ -160,16 +165,10 @@ public class UserServiceImpl implements UserService {
         // 5. 如果是医生角色，查询doctorId
         Long doctorId = user.getRoleType() == 2 ? resolveDoctorId(user.getId()) : null;
 
-        // 6. 构建返回结果
-        LoginResponse response = LoginResponse.builder()
-                .token(token)
-                .id(user.getId())
-                .username(user.getUsername())
-                .realName(user.getRealName())
-                .roleType(user.getRoleType())
-                .phone(user.getPhone())
-                .doctorId(doctorId)
-                .build();
+        // 6. 构建返回结果（使用MapStruct映射）
+        LoginResponse response = dtoMapper.toLoginResponse(user);
+        response.setToken(token);
+        response.setDoctorId(doctorId);
 
         // ================== Redis 会话缓存（中文注释） ==================
         // 在登录成功后，将用户的会话信息写入 Redis，用于后续接口判断登录超时/拦截等逻辑。
@@ -282,7 +281,7 @@ public class UserServiceImpl implements UserService {
             return Result.error(ResultCode.USER_NOT_FOUND);
         }
 
-        UserInfoResponse response = BeanUtil.copyProperties(user, UserInfoResponse.class);
+        UserInfoResponse response = dtoMapper.toUserInfoResponse(user);
 
         // 身份证号脱敏
         if (response.getIdCard() != null && response.getIdCard().length() > 10) {
@@ -332,7 +331,9 @@ public class UserServiceImpl implements UserService {
             }
         } catch (Exception ignored) {}
 
-        User user = userMapper.selectByUsername(username);
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("username", username);
+        User user = userMapper.selectOne(queryWrapper);
         boolean exists = user != null;
         existsUsernameMiss.incrementAndGet();
         try { redisUtil.set(cacheKey, exists, existsTtlSeconds, TimeUnit.SECONDS); } catch (Exception ignored) {}
@@ -357,7 +358,9 @@ public class UserServiceImpl implements UserService {
             }
         } catch (Exception ignored) {}
 
-        User user = userMapper.selectByPhone(phone);
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("phone", phone);
+        User user = userMapper.selectOne(queryWrapper);
         boolean exists = user != null;
         existsPhoneMiss.incrementAndGet();
         try { redisUtil.set(cacheKey, exists, existsTtlSeconds, TimeUnit.SECONDS); } catch (Exception ignored) {}

@@ -11,6 +11,8 @@ import com.hospital.mapper.UserRecipeFavoriteMapper;
 import com.hospital.service.AiRecommendationService;
 import com.hospital.util.RedisUtil;
 import com.hospital.common.constant.CacheConstants;
+import com.hospital.util.CacheKeyBuilder;
+import com.hospital.util.CacheTtlPolicy;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.theokanning.openai.client.OpenAiApi;
@@ -33,11 +35,8 @@ import org.springframework.util.StringUtils;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -148,8 +147,12 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
         }
 
         // 生成缓存键
-        String cacheKey = CacheConstants.AI_RECOMMENDATION_REASON_CACHE_PREFIX +
-                generateCacheKey(recipe.getId().toString(), constitution.getPrimaryConstitution());
+        Map<String, Object> params = new java.util.HashMap<>();
+        params.put("recipeId", recipe.getId());
+        params.put("constitution", constitution.getPrimaryConstitution());
+        String cacheKey = CacheKeyBuilder.of(CacheConstants.AI_RECOMMENDATION_REASON_CACHE_PREFIX)
+                .appendParamsHash(params)
+                .build();
 
         // 尝试从缓存获取
         Object cached = redisUtil.get(cacheKey);
@@ -194,8 +197,12 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
         }
 
         // 生成缓存键
-        String cacheKey = CacheConstants.AI_CONVERSATION_CACHE_PREFIX +
-                generateCacheKey(conversationContent, userId != null ? userId.toString() : "anonymous");
+        Map<String, Object> params = new java.util.HashMap<>();
+        params.put("content", conversationContent);
+        params.put("userId", userId != null ? userId.toString() : "anonymous");
+        String cacheKey = CacheKeyBuilder.of(CacheConstants.AI_CONVERSATION_CACHE_PREFIX)
+                .appendParamsHash(params)
+                .build();
 
         // 尝试从缓存获取
         Object cached = redisUtil.get(cacheKey);
@@ -248,8 +255,12 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
         }
 
         // 生成缓存键
-        String cacheKey = CacheConstants.AI_QUESTION_CACHE_PREFIX + generateCacheKey(question,
-                userId != null ? userId.toString() : "anonymous");
+        Map<String, Object> params = new java.util.HashMap<>();
+        params.put("question", question);
+        params.put("userId", userId != null ? userId.toString() : "anonymous");
+        String cacheKey = CacheKeyBuilder.of(CacheConstants.AI_QUESTION_CACHE_PREFIX)
+                .appendParamsHash(params)
+                .build();
 
         // 尝试从缓存获取
         Object cached = redisUtil.get(cacheKey);
@@ -307,7 +318,7 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
             log.info("用户{}无收藏记录，协同过滤降级为热门推荐", userId);
             List<HerbalRecipe> fallback = herbalRecipeMapper.selectPopularRecipes(limit);
             applyFavoriteFlag(fallback, userId);
-            redisUtil.set(cacheKey, fallback, CacheConstants.AI_RECOMMENDATION_TTL_SECONDS, TimeUnit.SECONDS);
+            redisUtil.set(cacheKey, fallback, CacheTtlPolicy.AI_RECOMMENDATION.getSeconds(), TimeUnit.SECONDS);
             return fallback;
         }
 
@@ -333,7 +344,7 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
             log.info("协同过滤得分为空，降级为热门推荐");
             List<HerbalRecipe> fallback = herbalRecipeMapper.selectPopularRecipes(limit);
             applyFavoriteFlag(fallback, userId);
-            redisUtil.set(cacheKey, fallback, CacheConstants.AI_RECOMMENDATION_TTL_SECONDS, TimeUnit.SECONDS);
+            redisUtil.set(cacheKey, fallback, CacheTtlPolicy.AI_RECOMMENDATION.getSeconds(), TimeUnit.SECONDS);
             return fallback;
         }
 
@@ -392,7 +403,7 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
             log.info("内容推荐得分为空，返回热门数据");
             List<HerbalRecipe> fallback = herbalRecipeMapper.selectPopularRecipes(limit);
             applyFavoriteFlag(fallback, userId);
-            redisUtil.set(cacheKey, fallback, CacheConstants.AI_RECOMMENDATION_TTL_SECONDS, TimeUnit.SECONDS);
+            redisUtil.set(cacheKey, fallback, CacheTtlPolicy.AI_RECOMMENDATION.getSeconds(), TimeUnit.SECONDS);
             return fallback;
         }
 
@@ -459,7 +470,7 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
         try {
             // 构建消息列表
             List<ChatMessage> messages = new ArrayList<>();
-            messages.add(new ChatMessage(ChatMessageRole.SYSTEM.value(), 
+            messages.add(new ChatMessage(ChatMessageRole.SYSTEM.value(),
                     "你是一位专业的中医健康顾问，擅长根据用户体质和症状推荐合适的药膳和养生建议。请始终使用中文回答，不要使用英文或其他语言。"));
             messages.add(new ChatMessage(ChatMessageRole.USER.value(), prompt));
 
@@ -854,21 +865,21 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
         if (!StringUtils.hasText(response)) {
             return response;
         }
-        
+
         // 如果内容主要是中文（中文字符占比超过70%），直接返回
         long chineseCharCount = response.codePoints()
-                .filter(cp -> (cp >= 0x4E00 && cp <= 0x9FFF) || 
-                              (cp >= 0x3400 && cp <= 0x4DBF) || 
+                .filter(cp -> (cp >= 0x4E00 && cp <= 0x9FFF) ||
+                              (cp >= 0x3400 && cp <= 0x4DBF) ||
                               (cp >= 0x20000 && cp <= 0x2A6DF))
                 .count();
         double chineseRatio = (double) chineseCharCount / response.length();
-        
+
         if (chineseRatio >= 0.7) {
             // 内容主要是中文，只做轻微清理
             response = response.replaceAll("\\s+", " "); // 合并多个空格
             return response.trim();
         }
-        
+
         // 如果英文内容较多，提取中文部分
         // 按句分割，保留包含中文的句子
         String[] sentences = response.split("[。！？\n]");
@@ -879,29 +890,11 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
                 cleaned.append(sentence.trim()).append("。");
             }
         }
-        
+
         String result = cleaned.toString().trim();
         // 如果清理后为空，返回原内容（避免丢失所有信息）
         return result.isEmpty() ? response : result;
     }
 
-    /**
-     * 生成缓存键
-     */
-    private String generateCacheKey(String... parts) {
-        try {
-            String combined = String.join(":", parts);
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] hash = md.digest(combined.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hash) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch (Exception e) {
-            log.error("生成缓存键失败", e);
-            return UUID.randomUUID().toString().replace("-", "");
-        }
-    }
 }
 
