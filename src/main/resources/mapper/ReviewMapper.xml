@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.mapper.ReviewMapper">
+    
+    <!-- 分页查询医生评价 -->
+    <select id="selectDoctorReviews" resultType="com.hospital.entity.Review">
+        SELECT
+            r.id,
+            r.appointment_id,
+            r.consultation_record_id,
+            r.patient_id,
+            r.doctor_id,
+            r.category_id,
+            r.rating,
+            r.service_rating,
+            r.professional_rating,
+            r.environment_rating,
+            r.content,
+            r.is_anonymous,
+            r.tags,
+            r.images,
+            r.doctor_reply,
+            r.doctor_reply_time,
+            r.status,
+            r.created_at,
+            r.updated_at,
+            CASE WHEN r.is_anonymous = 1 THEN '匿名用户' ELSE u.real_name END as patientName,
+            CASE WHEN r.is_anonymous = 1 THEN NULL ELSE u.avatar END as patientAvatar,
+            d.doctor_name as doctorName,
+            c.category_name as categoryName
+        FROM review r
+        LEFT JOIN user u ON r.patient_id = u.id
+        LEFT JOIN tcm_doctor d ON r.doctor_id = d.id
+        LEFT JOIN tcm_category c ON r.category_id = c.id
+        WHERE r.doctor_id = #{params.doctorId}
+        <if test="params.status != null and params.status != ''">
+            AND r.status = #{params.status}
+        </if>
+        <if test="params.rating != null">
+            AND r.rating = #{params.rating}
+        </if>
+        <if test="params.sort != null and params.sort == 'latest'">
+            ORDER BY r.created_at DESC
+        </if>
+        <if test="params.sort != null and params.sort == 'rating'">
+            ORDER BY r.rating DESC, r.created_at DESC
+        </if>
+        <if test="params.sort == null or params.sort == ''">
+            ORDER BY r.created_at DESC
+        </if>
+    </select>
+    
+    <!-- 分页查询所有评价（管理员） -->
+    <select id="selectAllReviews" resultType="com.hospital.entity.Review">
+        SELECT
+            r.id,
+            r.appointment_id,
+            r.consultation_record_id,
+            r.patient_id,
+            r.doctor_id,
+            r.category_id,
+            r.rating,
+            r.service_rating,
+            r.professional_rating,
+            r.environment_rating,
+            r.content,
+            r.is_anonymous,
+            r.tags,
+            r.images,
+            r.doctor_reply,
+            r.doctor_reply_time,
+            r.status,
+            r.created_at,
+            r.updated_at,
+            CASE WHEN r.is_anonymous = 1 THEN '匿名用户' ELSE u.real_name END as patientName,
+            CASE WHEN r.is_anonymous = 1 THEN NULL ELSE u.avatar END as patientAvatar,
+            d.doctor_name as doctorName,
+            c.category_name as categoryName
+        FROM review r
+        LEFT JOIN user u ON r.patient_id = u.id
+        LEFT JOIN tcm_doctor d ON r.doctor_id = d.id
+        LEFT JOIN tcm_category c ON r.category_id = c.id
+        WHERE 1 = 1
+        <if test="params.status != null and params.status != ''">
+            AND r.status = #{params.status}
+        </if>
+        <if test="params.doctorId != null">
+            AND r.doctor_id = #{params.doctorId}
+        </if>
+        <if test="params.patientId != null">
+            AND r.patient_id = #{params.patientId}
+        </if>
+        <if test="params.rating != null">
+            AND r.rating = #{params.rating}
+        </if>
+        ORDER BY r.created_at DESC
+    </select>
+    
+    <!-- 更新医生评分统计 -->
+    <update id="updateDoctorRating">
+        UPDATE tcm_doctor d
+        SET d.rating = (
+            SELECT COALESCE(AVG(r.rating), 0)
+            FROM review r
+            WHERE r.doctor_id = #{doctorId}
+            AND r.status = 'PUBLISHED'
+        )
+        WHERE d.id = #{doctorId}
+    </update>
+    
+</mapper>

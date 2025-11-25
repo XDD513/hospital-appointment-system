@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.mapper.HealthCheckinMapper">
+
+    <!-- ResultMap 定义 -->
+    <resultMap id="HealthCheckinResultMap" type="com.hospital.entity.HealthCheckin">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="checkinType" column="checkin_type"/>
+        <result property="checkinDate" column="checkin_date"/>
+        <result property="symptom" column="symptom"/>
+        <result property="mood" column="mood"/>
+        <result property="sleepQuality" column="sleep_quality"/>
+        <result property="appetite" column="appetite"/>
+        <result property="energyLevel" column="energy_level"/>
+        <result property="bodyTemperature" column="body_temperature"/>
+        <result property="bloodPressure" column="blood_pressure"/>
+        <result property="heartRate" column="heart_rate"/>
+        <result property="weight" column="weight"/>
+        <result property="notes" column="notes"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 分页查询用户的打卡记录 -->
+    <select id="selectByUserId" resultMap="HealthCheckinResultMap">
+        SELECT * FROM health_checkin
+        WHERE user_id = #{userId}
+        <if test="checkinType != null and checkinType != ''">
+            AND checkin_type = #{checkinType}
+        </if>
+        ORDER BY checkin_date DESC, created_at DESC
+    </select>
+
+    <!-- 查询用户指定日期的打卡记录 -->
+    <select id="selectByUserIdAndDate" resultMap="HealthCheckinResultMap">
+        SELECT * FROM health_checkin
+        WHERE user_id = #{userId} AND checkin_date = #{checkinDate}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 查询用户指定日期范围的打卡记录 -->
+    <select id="selectByDateRange" resultMap="HealthCheckinResultMap">
+        SELECT * FROM health_checkin
+        WHERE user_id = #{userId}
+        AND checkin_date BETWEEN #{startDate} AND #{endDate}
+        ORDER BY checkin_date DESC
+    </select>
+
+    <!-- 统计用户连续打卡天数 -->
+    <select id="countContinuousDays" resultType="java.lang.Integer">
+        SELECT COUNT(DISTINCT checkin_date)
+        FROM health_checkin
+        WHERE user_id = #{userId}
+        AND checkin_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+    </select>
+
+</mapper>
+

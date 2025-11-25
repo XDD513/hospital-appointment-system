@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.mapper.ConsultationRecordMapper">
+    
+    <!-- 分页查询医生接诊记录 -->
+    <select id="selectDoctorRecords" resultType="com.hospital.entity.ConsultationRecord">
+        SELECT
+            cr.id,
+            cr.appointment_id,
+            cr.patient_id,
+            cr.doctor_id,
+            cr.category_id,
+            cr.consultation_date,
+            cr.consultation_time,
+            CAST(cr.chief_complaint AS CHAR) as chief_complaint,
+            CAST(cr.present_illness AS CHAR) as present_illness,
+            CAST(cr.past_history AS CHAR) as past_history,
+            CAST(cr.physical_examination AS CHAR) as physical_examination,
+            CAST(cr.auxiliary_examination AS CHAR) as auxiliary_examination,
+            CAST(cr.diagnosis AS CHAR) as diagnosis,
+            CAST(cr.treatment_plan AS CHAR) as treatment_plan,
+            CAST(cr.prescription AS CHAR) as prescription,
+            CAST(cr.follow_up_advice AS CHAR) as follow_up_advice,
+            cr.consultation_fee,
+            cr.duration_minutes,
+            cr.status,
+            cr.created_at,
+            cr.updated_at,
+            cr.version,
+            u.real_name as patientName,
+            CASE
+                WHEN u.gender = 1 THEN '男'
+                WHEN u.gender = 2 THEN '女'
+                ELSE '未知'
+            END as gender,
+            TIMESTAMPDIFF(YEAR, u.birthday, CURDATE()) as age,
+            d.doctor_name as doctorName,
+            c.category_name as categoryName,
+            a.appointment_date as appointmentDate,
+            a.time_slot as timeSlot,
+            a.queue_number as queueNumber,
+            CASE
+                WHEN cr.consultation_date IS NOT NULL AND cr.consultation_time IS NOT NULL
+                THEN CONCAT(DATE_FORMAT(cr.consultation_date, '%Y-%m-%d'), ' ', TIME_FORMAT(cr.consultation_time, '%H:%i:%s'))
+                ELSE NULL
+            END as consultationDateTime
+        FROM consultation_record cr
+        LEFT JOIN user u ON cr.patient_id = u.id
+        LEFT JOIN tcm_doctor d ON cr.doctor_id = d.id
+        LEFT JOIN tcm_category c ON cr.category_id = c.id
+        LEFT JOIN appointment a ON cr.appointment_id = a.id
+        WHERE cr.doctor_id = #{params.doctorId}
+        <if test="params.patientName != null and params.patientName != ''">
+            AND u.real_name LIKE CONCAT('%', #{params.patientName}, '%')
+        </if>
+        <if test="params.startDate != null and params.startDate != ''">
+            AND cr.consultation_date >= #{params.startDate}
+        </if>
+        <if test="params.endDate != null and params.endDate != ''">
+            AND cr.consultation_date &lt;= #{params.endDate}
+        </if>
+        <if test="params.status != null and params.status != ''">
+            AND cr.status = #{params.status}
+        </if>
+        ORDER BY cr.consultation_date DESC, cr.created_at DESC
+    </select>
+    
+    <!-- 查询医生接诊记录详情 -->
+    <select id="selectDoctorRecordById" resultType="com.hospital.entity.ConsultationRecord">
+        SELECT
+            cr.id,
+            cr.appointment_id,
+            cr.patient_id,
+            cr.doctor_id,
+            cr.category_id,
+            cr.consultation_date,
+            cr.consultation_time,
+            CAST(cr.chief_complaint AS CHAR) as chief_complaint,
+            CAST(cr.present_illness AS CHAR) as present_illness,
+            CAST(cr.past_history AS CHAR) as past_history,
+            CAST(cr.physical_examination AS CHAR) as physical_examination,
+            CAST(cr.auxiliary_examination AS CHAR) as auxiliary_examination,
+            CAST(cr.diagnosis AS CHAR) as diagnosis,
+            CAST(cr.treatment_plan AS CHAR) as treatment_plan,
+            CAST(cr.prescription AS CHAR) as prescription,
+            CAST(cr.follow_up_advice AS CHAR) as follow_up_advice,
+            cr.consultation_fee,
+            cr.duration_minutes,
+            cr.status,
+            cr.created_at,
+            cr.updated_at,
+            cr.version,
+            u.real_name as patientName,
+            d.doctor_name as doctorName,
+            c.category_name as categoryName
+        FROM consultation_record cr
+        LEFT JOIN user u ON cr.patient_id = u.id
+        LEFT JOIN tcm_doctor d ON cr.doctor_id = d.id
+        LEFT JOIN tcm_category c ON cr.category_id = c.id
+        WHERE cr.id = #{id} AND cr.doctor_id = #{doctorId}
+    </select>
+    
+    <!-- 统计医生接诊记录数量 -->
+    <select id="countDoctorRecords" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM consultation_record cr
+        LEFT JOIN user u ON cr.patient_id = u.id
+        WHERE cr.doctor_id = #{doctorId}
+        <if test="params.patientName != null and params.patientName != ''">
+            AND u.real_name LIKE CONCAT('%', #{params.patientName}, '%')
+        </if>
+        <if test="params.startDate != null and params.startDate != ''">
+            AND cr.consultation_date >= #{params.startDate}
+        </if>
+        <if test="params.endDate != null and params.endDate != ''">
+            AND cr.consultation_date &lt;= #{params.endDate}
+        </if>
+        <if test="params.status != null and params.status != ''">
+            AND cr.status = #{params.status}
+        </if>
+    </select>
+
+    <!-- 查询接诊记录详情（包含关联信息） -->
+    <select id="selectRecordDetailById" resultType="com.hospital.entity.ConsultationRecord">
+        SELECT
+            cr.id,
+            cr.appointment_id,
+            cr.patient_id,
+            cr.doctor_id,
+            cr.category_id,
+            cr.consultation_date,
+            cr.consultation_time,
+            CAST(cr.chief_complaint AS CHAR) as chief_complaint,
+            CAST(cr.present_illness AS CHAR) as present_illness,
+            CAST(cr.past_history AS CHAR) as past_history,
+            CAST(cr.physical_examination AS CHAR) as physical_examination,
+            CAST(cr.auxiliary_examination AS CHAR) as auxiliary_examination,
+            CAST(cr.diagnosis AS CHAR) as diagnosis,
+            CAST(cr.treatment_plan AS CHAR) as treatment_plan,
+            CAST(cr.prescription AS CHAR) as prescription,
+            CAST(cr.follow_up_advice AS CHAR) as follow_up_advice,
+            cr.consultation_fee,
+            cr.duration_minutes,
+            cr.status,
+            cr.created_at,
+            cr.updated_at,
+            cr.version,
+            u.real_name as patientName,
+            CASE
+                WHEN u.gender = 1 THEN '男'
+                WHEN u.gender = 2 THEN '女'
+                ELSE '未知'
+            END as gender,
+            TIMESTAMPDIFF(YEAR, u.birthday, CURDATE()) as age,
+            d.doctor_name as doctorName,
+            c.category_name as categoryName,
+            a.appointment_date as appointmentDate,
+            a.time_slot as timeSlot,
+            a.queue_number as queueNumber,
+            CASE
+                WHEN cr.consultation_date IS NOT NULL AND cr.consultation_time IS NOT NULL
+                THEN CONCAT(DATE_FORMAT(cr.consultation_date, '%Y-%m-%d'), ' ', TIME_FORMAT(cr.consultation_time, '%H:%i:%s'))
+                ELSE NULL
+            END as consultationDateTime
+        FROM consultation_record cr
+        LEFT JOIN user u ON cr.patient_id = u.id
+        LEFT JOIN tcm_doctor d ON cr.doctor_id = d.id
+        LEFT JOIN tcm_category c ON cr.category_id = c.id
+        LEFT JOIN appointment a ON cr.appointment_id = a.id
+        WHERE cr.id = #{id}
+    </select>
+
+</mapper>

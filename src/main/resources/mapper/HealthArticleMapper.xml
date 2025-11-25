@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.mapper.HealthArticleMapper">
+
+    <!-- ResultMap 定义 -->
+    <resultMap id="HealthArticleResultMap" type="com.hospital.entity.HealthArticle">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="summary" column="summary"/>
+        <result property="coverImage" column="cover_image"/>
+        <result property="authorId" column="author_id"/>
+        <result property="authorName" column="author_name"/>
+        <result property="category" column="category"/>
+        <result property="tags" column="tags"/>
+        <result property="constitutionType" column="constitution_type"/>
+        <result property="viewCount" column="view_count"/>
+        <result property="likeCount" column="like_count"/>
+        <result property="favoriteCount" column="favorite_count"/>
+        <result property="commentCount" column="comment_count"/>
+        <result property="isTop" column="is_top"/>
+        <result property="isFeatured" column="is_featured"/>
+        <result property="status" column="status"/>
+        <result property="publishTime" column="publish_time"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 分页查询文章列表 -->
+    <select id="selectArticlePage" resultMap="HealthArticleResultMap">
+        SELECT a.*, COALESCE(u.real_name, u.username) as author_name
+        FROM health_article a
+        LEFT JOIN user u ON a.author_id = u.id
+        WHERE a.status = 1
+        <if test="category != null and category != ''">
+            AND a.category = #{category}
+        </if>
+        <if test="constitutionType != null and constitutionType != ''">
+            AND (a.constitution_type LIKE CONCAT('%', #{constitutionType}, '%') OR a.constitution_type = 'ALL')
+        </if>
+        <if test="tags != null and tags != ''">
+            AND (
+            <foreach collection="tags" item="tag" separator=" OR " open="" close="">
+                a.tags LIKE CONCAT('%', #{tag}, '%')
+            </foreach>
+            )
+        </if>
+        <if test="isFeatured != null">
+            AND a.is_featured = #{isFeatured}
+        </if>
+        ORDER BY a.is_top DESC, a.publish_time DESC
+    </select>
+
+    <!-- 搜索文章（按标题、摘要、标签） -->
+    <select id="searchArticles" resultMap="HealthArticleResultMap">
+        SELECT a.*, COALESCE(u.real_name, u.username) as author_name
+        FROM health_article a
+        LEFT JOIN user u ON a.author_id = u.id
+        WHERE a.status = 1
+        AND (
+            a.title LIKE CONCAT('%', #{keyword}, '%')
+            OR a.summary LIKE CONCAT('%', #{keyword}, '%')
+            OR a.tags LIKE CONCAT('%', #{keyword}, '%')
+        )
+        ORDER BY a.is_top DESC, a.view_count DESC
+    </select>
+
+    <!-- 根据作者ID查询文章 -->
+    <select id="selectByAuthorId" resultMap="HealthArticleResultMap">
+        SELECT a.*, COALESCE(u.real_name, u.username) as author_name
+        FROM health_article a
+        LEFT JOIN user u ON a.author_id = u.id
+        WHERE a.author_id = #{authorId}
+        ORDER BY a.created_at DESC
+    </select>
+
+    <!-- 获取精选文章 -->
+    <select id="selectRecommendedArticles" resultMap="HealthArticleResultMap">
+        SELECT a.*, COALESCE(u.real_name, u.username) as author_name
+        FROM health_article a
+        LEFT JOIN user u ON a.author_id = u.id
+        WHERE a.status = 1 AND a.is_featured = 1
+        ORDER BY a.is_top DESC, a.view_count DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 获取热门文章 -->
+    <select id="selectPopularArticles" resultMap="HealthArticleResultMap">
+        SELECT a.*, COALESCE(u.real_name, u.username) as author_name
+        FROM health_article a
+        LEFT JOIN user u ON a.author_id = u.id
+        WHERE a.status = 1
+        ORDER BY a.view_count DESC, a.like_count DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 增加浏览次数 -->
+    <update id="incrementViewCount">
+        UPDATE health_article
+        SET view_count = view_count + 1
+        WHERE id = #{id}
+    </update>
+
+    <!-- 增加点赞次数 -->
+    <update id="incrementLikeCount">
+        UPDATE health_article
+        SET like_count = like_count + 1
+        WHERE id = #{id}
+    </update>
+
+    <!-- 减少点赞次数 -->
+    <update id="decrementLikeCount">
+        UPDATE health_article
+        SET like_count = like_count - 1
+        WHERE id = #{id} AND like_count > 0
+    </update>
+
+    <!-- 增加收藏次数 -->
+    <update id="incrementFavoriteCount">
+        UPDATE health_article
+        SET favorite_count = favorite_count + 1
+        WHERE id = #{id}
+    </update>
+
+    <!-- 减少收藏次数 -->
+    <update id="decrementFavoriteCount">
+        UPDATE health_article
+        SET favorite_count = favorite_count - 1
+        WHERE id = #{id} AND favorite_count > 0
+    </update>
+
+    <!-- 增加评论次数 -->
+    <update id="incrementCommentCount">
+        UPDATE health_article
+        SET comment_count = comment_count + 1
+        WHERE id = #{id}
+    </update>
+
+    <!-- 减少评论次数 -->
+    <update id="decrementCommentCount">
+        UPDATE health_article
+        SET comment_count = comment_count - 1
+        WHERE id = #{id} AND comment_count > 0
+    </update>
+
+</mapper>
+

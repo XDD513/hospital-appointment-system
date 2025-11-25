@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.mapper.UserConstitutionTestMapper">
+
+    <!-- ResultMap 定义 -->
+    <resultMap id="UserConstitutionTestResultMap" type="com.hospital.entity.UserConstitutionTest">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="appointmentId" column="appointment_id"/>
+        <result property="testDate" column="test_date"/>
+        <result property="primaryConstitution" column="primary_constitution"/>
+        <result property="secondaryConstitution" column="secondary_constitution"/>
+        <result property="constitutionScores" column="constitution_scores"/>
+        <result property="testResult" column="test_result"/>
+        <result property="suggestions" column="suggestions"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 查询用户最新的测试记录 -->
+    <select id="selectLatestByUserId" resultMap="UserConstitutionTestResultMap">
+        SELECT * FROM user_constitution_test
+        WHERE user_id = #{userId}
+        ORDER BY test_date DESC, created_at DESC
+        LIMIT 1
+    </select>
+
+    <!-- 查询用户的测试历史记录（按时间倒序） -->
+    <select id="selectHistoryByUserId" resultMap="UserConstitutionTestResultMap">
+        SELECT * FROM user_constitution_test
+        WHERE user_id = #{userId}
+        ORDER BY test_date DESC, created_at DESC
+    </select>
+
+    <!-- 统计用户测试次数 -->
+    <select id="countByUserId" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM user_constitution_test
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 根据预约ID查询体质测试记录 -->
+    <select id="selectByAppointmentId" resultMap="UserConstitutionTestResultMap">
+        SELECT * FROM user_constitution_test
+        WHERE appointment_id = #{appointmentId}
+        ORDER BY test_date DESC, created_at DESC
+        LIMIT 1
+    </select>
+
+</mapper>
+

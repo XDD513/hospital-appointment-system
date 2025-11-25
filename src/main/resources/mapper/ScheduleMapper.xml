@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.mapper.ScheduleMapper">
+
+    <!-- ResultMap 定义 -->
+    <resultMap id="ScheduleResultMap" type="com.hospital.entity.Schedule">
+        <id property="id" column="id"/>
+        <result property="doctorId" column="doctor_id"/>
+        <result property="scheduleDate" column="schedule_date"/>
+        <result property="timeSlot" column="time_slot"/>
+        <result property="startTime" column="start_time"/>
+        <result property="endTime" column="end_time"/>
+        <result property="totalQuota" column="total_quota"/>
+        <result property="remainingQuota" column="remaining_quota"/>
+        <result property="bookedQuota" column="booked_quota"/>
+        <result property="status" column="status"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 根据医生ID和日期查询排班 -->
+    <select id="selectByDoctorIdAndDate" resultMap="ScheduleResultMap">
+        SELECT * FROM schedule
+        WHERE doctor_id = #{doctorId} AND schedule_date = #{scheduleDate}
+    </select>
+
+    <!-- 查询医生某个日期某个时段的排班 -->
+    <select id="selectByDoctorDateSlot" resultMap="ScheduleResultMap">
+        SELECT * FROM schedule
+        WHERE doctor_id = #{doctorId}
+        AND schedule_date = #{scheduleDate}
+        AND time_slot = #{timeSlot}
+    </select>
+
+    <!-- 扣减号源（乐观锁） -->
+    <update id="decreaseQuota">
+        UPDATE schedule
+        SET remaining_quota = remaining_quota - 1,
+            booked_quota = booked_quota + 1,
+            updated_at = NOW()
+        WHERE id = #{id} AND remaining_quota > 0
+    </update>
+
+    <!-- 增加号源（取消预约时） -->
+    <update id="increaseQuota">
+        UPDATE schedule
+        SET remaining_quota = remaining_quota + 1,
+            booked_quota = booked_quota - 1,
+            updated_at = NOW()
+        WHERE id = #{id} AND booked_quota > 0
+    </update>
+
+    <!-- 查询医生某个月的排班 -->
+    <select id="selectByDoctorIdAndDateRange" resultMap="ScheduleResultMap">
+        SELECT * FROM schedule
+        WHERE doctor_id = #{doctorId}
+        AND schedule_date &gt;= #{startDate}
+        AND schedule_date &lt;= #{endDate}
+        ORDER BY schedule_date ASC, time_slot ASC
+    </select>
+
+</mapper>
+

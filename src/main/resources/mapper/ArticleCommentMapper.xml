@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.mapper.ArticleCommentMapper">
+
+    <!-- ResultMap 定义 -->
+    <resultMap id="ArticleCommentResultMap" type="com.hospital.entity.ArticleComment">
+        <id property="id" column="id"/>
+        <result property="articleId" column="article_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="content" column="content"/>
+        <result property="likeCount" column="like_count"/>
+        <result property="status" column="status"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 分页查询文章评论 -->
+    <select id="selectCommentPage" resultMap="ArticleCommentResultMap">
+        SELECT * FROM article_comment
+        WHERE article_id = #{articleId}
+        AND parent_id = #{parentId}
+        AND status = 1
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 查询文章的所有评论（包括子评论） -->
+    <select id="selectAllByArticleId" resultMap="ArticleCommentResultMap">
+        SELECT * FROM article_comment
+        WHERE article_id = #{articleId} AND status = 1
+        ORDER BY parent_id ASC, created_at DESC
+    </select>
+
+    <!-- 查询用户的评论 -->
+    <select id="selectByUserId" resultMap="ArticleCommentResultMap">
+        SELECT * FROM article_comment
+        WHERE user_id = #{userId} AND status = 1
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 查询评论的回复数量 -->
+    <select id="countReplies" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM article_comment
+        WHERE parent_id = #{parentId} AND status = 1
+    </select>
+
+    <!-- 增加点赞次数 -->
+    <update id="incrementLikeCount">
+        UPDATE article_comment
+        SET like_count = like_count + 1
+        WHERE id = #{id}
+    </update>
+
+    <!-- 减少点赞次数 -->
+    <update id="decrementLikeCount">
+        UPDATE article_comment
+        SET like_count = like_count - 1
+        WHERE id = #{id} AND like_count > 0
+    </update>
+
+</mapper>
+

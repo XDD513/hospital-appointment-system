@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: hospital-appointment-system
+  cloud:
+    nacos:
+      config:
+        # Nacos 默认端口为 8848，这里将占位值调整为 8848，避免未设置 NACOS_SERVER_ADDR 时误连到 8080
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:dev}
+        group: HOSPITAL_BACKEND
+        file-extension: yaml
+        refresh-enabled: true
+        extension-configs:
+          - dataId: hospital-frontend-${spring.profiles.active:dev}.yaml
+            group: HOSPITAL_FRONTEND
+            refresh: true
+      discovery:
+        server-addr: ${spring.cloud.nacos.config.server-addr}
+        namespace: ${spring.cloud.nacos.config.namespace}
+

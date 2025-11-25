@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.mapper.PatientMapper">
+    
+    <!-- 获取今日患者列表（医生端使用）
+         注意：SQL中的状态值对应 AppointmentStatus.CONFIRMED, IN_PROGRESS -->
+    <select id="selectTodayPatients" resultType="map">
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY a.created_at ASC) as queueNumber,
+            a.id as appointmentId,
+            a.user_id as patientId,
+            a.doctor_id as doctorId,
+            a.category_id as deptId,
+            u.real_name as patientName,
+            u.gender,
+            TIMESTAMPDIFF(YEAR, u.birthday, CURDATE()) as age,
+            u.phone as phone,
+            TIME_FORMAT(s.start_time, '%H:%i') as appointmentTime,
+            a.time_slot as timeSlot,
+            a.status
+        FROM appointment a
+        INNER JOIN user u ON a.user_id = u.id
+        LEFT JOIN schedule s ON a.schedule_id = s.id
+        WHERE a.doctor_id = #{doctorId}
+        AND DATE(a.appointment_date) = CURDATE()
+        AND a.status IN ('CONFIRMED', 'IN_PROGRESS')
+        ORDER BY s.start_time ASC, a.created_at ASC
+    </select>
+    
+    <!-- 获取历史患者列表（医生端使用）
+         注意：SQL中的状态值对应 AppointmentStatus.COMPLETED -->
+    <select id="selectHistoryPatients" resultType="map">
+        SELECT DISTINCT
+            u.id as patientId,
+            u.real_name as patientName,
+            u.gender,
+            u.phone,
+            MAX(a.appointment_date) as lastVisitDate,
+            COUNT(a.id) as visitCount
+        FROM appointment a
+        INNER JOIN user u ON a.user_id = u.id
+        WHERE a.doctor_id = #{params.doctorId}
+        AND a.status = 'COMPLETED'
+        GROUP BY u.id, u.real_name, u.gender, u.phone
+        ORDER BY lastVisitDate DESC
+    </select>
+    
+    <!-- 获取待接诊患者列表
+         注意：SQL中的状态值对应 AppointmentStatus.CONFIRMED -->
+    <select id="selectTodayPendingPatients" resultType="map">
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY a.created_at ASC) as queueNumber,
+            a.id as appointmentId,
+            a.user_id as patientId,
+            a.doctor_id as doctorId,
+            a.category_id as deptId,
+            u.real_name as patientName,
+            u.gender,
+            TIMESTAMPDIFF(YEAR, u.birthday, CURDATE()) as age,
+            u.phone as phone,
+            a.time_slot as timeSlot,
+            TIME_FORMAT(s.start_time, '%H:%i') as appointmentTime
+        FROM appointment a
+        INNER JOIN user u ON a.user_id = u.id
+        LEFT JOIN schedule s ON a.schedule_id = s.id
+        WHERE a.doctor_id = #{doctorId}
+        AND DATE(a.appointment_date) = CURDATE()
+        AND a.status = 'CONFIRMED'
+        ORDER BY s.start_time ASC, a.created_at ASC
+    </select>
+    
+    <!-- 获取已接诊患者列表
+         注意：SQL中的状态值对应 AppointmentStatus.IN_PROGRESS, COMPLETED -->
+    <select id="selectTodayCompletedPatients" resultType="map">
+        SELECT
+            a.id as appointmentId,
+            u.real_name as patientName,
+            a.updated_at as consultationTime,
+            '' as diagnosis
+        FROM appointment a
+        INNER JOIN user u ON a.user_id = u.id
+        WHERE a.doctor_id = #{doctorId}
+        AND DATE(a.appointment_date) = CURDATE()
+        AND a.status IN ('IN_PROGRESS', 'COMPLETED')
+        ORDER BY a.updated_at DESC
+        <!-- 暂时不关联consultation_record表，该表尚未创建 -->
+    </select>
+    
+    <!-- 获取所有患者列表（管理员端使用） -->
+    <select id="selectPatientList" resultType="com.hospital.entity.User">
+        SELECT 
+            id, username, real_name, phone, email, gender, birthday, 
+            id_card, address, status, created_at, updated_at
+        FROM user
+        WHERE role_type = 1
+        <if test="params.searchText != null and params.searchText != ''">
+            AND (real_name LIKE CONCAT('%', #{params.searchText}, '%')
+                 OR phone LIKE CONCAT('%', #{params.searchText}, '%')
+                 OR username LIKE CONCAT('%', #{params.searchText}, '%'))
+        </if>
+        <if test="params.status != null">
+            AND status = #{params.status}
+        </if>
+        ORDER BY created_at DESC
+    </select>
+    
+</mapper>

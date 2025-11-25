@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.mapper.AcupointCombinationMapper">
+
+    <!-- ResultMap 定义 -->
+    <resultMap id="AcupointCombinationResultMap" type="com.hospital.entity.AcupointCombination">
+        <id property="id" column="id"/>
+        <result property="combinationName" column="combination_name"/>
+        <result property="constitutionType" column="constitution_type"/>
+        <result property="symptom" column="symptom"/>
+        <result property="acupointIds" column="acupoint_ids"/>
+        <result property="description" column="description"/>
+        <result property="massageSequence" column="massage_sequence"/>
+        <result property="totalDuration" column="duration"/>
+        <result property="frequency" column="frequency"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 分页查询穴位组合列表 -->
+    <select id="selectCombinationPage" resultMap="AcupointCombinationResultMap">
+        SELECT * FROM acupoint_combination
+        WHERE 1=1
+        <if test="constitutionType != null and constitutionType != ''">
+            AND (constitution_type LIKE CONCAT('%', #{constitutionType}, '%') OR constitution_type = 'ALL')
+        </if>
+        <if test="symptom != null and symptom != ''">
+            AND symptom LIKE CONCAT('%', #{symptom}, '%')
+        </if>
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 根据体质推荐穴位组合 -->
+    <select id="selectRecommendedCombinations" resultMap="AcupointCombinationResultMap">
+        SELECT * FROM acupoint_combination
+        WHERE (constitution_type LIKE CONCAT('%', #{constitutionType}, '%') OR constitution_type = 'ALL')
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 搜索穴位组合（按名称、症状） -->
+    <select id="searchCombinations" resultMap="AcupointCombinationResultMap">
+        SELECT * FROM acupoint_combination
+        WHERE (
+            combination_name LIKE CONCAT('%', #{keyword}, '%')
+            OR symptom LIKE CONCAT('%', #{keyword}, '%')
+            OR description LIKE CONCAT('%', #{keyword}, '%')
+        )
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 根据症状查询穴位组合 -->
+    <select id="selectBySymptom" resultMap="AcupointCombinationResultMap">
+        SELECT * FROM acupoint_combination
+        WHERE symptom LIKE CONCAT('%', #{symptom}, '%')
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 获取热门穴位组合 -->
+    <select id="selectPopularCombinations" resultMap="AcupointCombinationResultMap">
+        SELECT * FROM acupoint_combination
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>
+

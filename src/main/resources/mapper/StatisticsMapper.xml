@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.mapper.StatisticsMapper">
+    
+    <!-- 获取管理员统计数据 -->
+    <select id="getAdminStats" resultType="com.hospital.dto.StatisticsDTO$AdminStats">
+        SELECT
+            (SELECT COUNT(*) FROM tcm_category WHERE status = 1) as departments,
+            (SELECT COUNT(*) FROM tcm_doctor WHERE status = 1) as doctors,
+            (SELECT COUNT(*) FROM user WHERE status = 1) as users,
+            (SELECT COUNT(*) FROM appointment WHERE DATE(created_at) = CURDATE()) as todayAppointments
+    </select>
+
+    <!-- 获取患者统计数据 -->
+    <select id="getPatientStats" resultType="com.hospital.dto.StatisticsDTO$PatientStats">
+        SELECT
+            (SELECT COUNT(*) FROM tcm_category WHERE status = 1) as departments,
+            (SELECT COUNT(*) FROM tcm_doctor WHERE status = 1) as doctors,
+            (SELECT COUNT(*) FROM appointment WHERE user_id = #{patientId}) as my_appointments,
+            (SELECT COUNT(*) FROM appointment WHERE user_id = #{patientId} AND DATE(appointment_date) = CURDATE()) as today_appointments,
+            (SELECT COUNT(*) FROM user_constitution_test WHERE user_id = #{patientId}) as test_count,
+            (SELECT COUNT(*) FROM user_recipe_favorite WHERE user_id = #{patientId}) as recipe_count,
+            (SELECT COUNT(*) FROM health_article WHERE author_id = #{patientId} AND status = 1) as article_count,
+            (SELECT COUNT(DISTINCT checkin_date) FROM health_checkin
+             WHERE user_id = #{patientId}
+             AND checkin_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)) as checkin_days
+    </select>
+    
+    <!-- 获取医生今日统计 -->
+    <select id="getDoctorTodayStats" resultType="com.hospital.dto.StatisticsDTO$DoctorTodayStats">
+        SELECT 
+            (SELECT COUNT(*) FROM appointment WHERE doctor_id = #{doctorId} AND DATE(appointment_date) = #{date}) as appointments,
+            (SELECT COUNT(*) FROM appointment WHERE doctor_id = #{doctorId} AND DATE(appointment_date) = #{date} AND status IN ('IN_PROGRESS', 'COMPLETED')) as completed,
+            (SELECT COUNT(*) FROM appointment WHERE doctor_id = #{doctorId} AND DATE(appointment_date) = #{date} AND status = 'CONFIRMED') as pending,
+            (SELECT COUNT(*) FROM appointment WHERE doctor_id = #{doctorId} AND status = 'COMPLETED') as total
+    </select>
+    
+    <!-- 获取医生评价统计 -->
+    <select id="getDoctorReviewStats" resultType="com.hospital.dto.StatisticsDTO$DoctorReviewStats">
+        SELECT
+            ROUND(COALESCE(AVG(r.rating), 0), 1)                          AS avgRating,
+            COUNT(r.id)                                                    AS totalReviews,
+            SUM(
+                CASE
+                    WHEN YEAR(r.created_at) = YEAR(CURDATE())
+                         AND MONTH(r.created_at) = MONTH(CURDATE())
+                    THEN 1 ELSE 0
+                END
+            )                                                              AS monthlyReviews,
+            CASE
+                WHEN COUNT(r.id) > 0 THEN ROUND(
+                    SUM(CASE WHEN r.rating >= 4 THEN 1 ELSE 0 END) * 100.0 / COUNT(r.id),
+                    1
+                )
+                ELSE 0
+            END                                                            AS goodRate
+        FROM review r
+        WHERE r.doctor_id = #{doctorId}
+          AND r.status = 'PUBLISHED'
+    </select>
+    
+    <!-- 获取月度统计 -->
+    <select id="getMonthlyStats" resultType="com.hospital.dto.StatisticsDTO$MonthlyStats">
+        SELECT 
+            COUNT(*) as totalAppointments,
+            SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completedAppointments,
+            SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END) as cancelledAppointments,
+            SUM(CASE WHEN status = 'NO_SHOW' THEN 1 ELSE 0 END) as noShowAppointments
+        FROM appointment 
+        WHERE YEAR(appointment_date) = #{year} AND MONTH(appointment_date) = #{month}
+    </select>
+    
+    <!-- 获取科室统计排行 -->
+    <select id="getDepartmentStats" resultType="com.hospital.dto.StatisticsDTO$DepartmentStats">
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as `rank`,
+            d.category_name as deptName,
+            COUNT(*) as appointmentCount,
+            ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM appointment WHERE status != 'CANCELLED'), 2) as percentage
+        FROM appointment a
+        INNER JOIN tcm_category d ON a.category_id = d.id
+        WHERE a.status != 'CANCELLED'
+        <if test="params.startDate != null">
+            AND DATE(a.appointment_date) >= #{params.startDate}
+        </if>
+        <if test="params.endDate != null">
+            AND DATE(a.appointment_date) &lt;= #{params.endDate}
+        </if>
+        GROUP BY a.category_id, d.category_name
+        ORDER BY appointmentCount DESC
+        LIMIT 10
+    </select>
+    
+    <!-- 获取医生统计排行 -->
+    <select id="getDoctorStats" resultType="com.hospital.dto.StatisticsDTO$DoctorStats">
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as `rank`,
+            doc.doctor_name as doctorName,
+            dept.category_name as categoryName,
+            COUNT(*) as appointmentCount
+        FROM appointment a
+        INNER JOIN tcm_doctor doc ON a.doctor_id = doc.id
+        INNER JOIN tcm_category dept ON a.category_id = dept.id
+        WHERE a.status != 'CANCELLED'
+        <if test="params.startDate != null">
+            AND DATE(a.appointment_date) >= #{params.startDate}
+        </if>
+        <if test="params.endDate != null">
+            AND DATE(a.appointment_date) &lt;= #{params.endDate}
+        </if>
+        <if test="params.deptId != null">
+            AND a.category_id = #{params.deptId}
+        </if>
+        GROUP BY a.doctor_id, doc.doctor_name, dept.category_name
+        ORDER BY appointmentCount DESC
+        LIMIT 10
+    </select>
+    
+    <!-- 获取预约趋势数据 -->
+    <select id="getAppointmentTrend" resultType="com.hospital.dto.StatisticsDTO$TrendData">
+        SELECT 
+            DATE_FORMAT(appointment_date, '%m-%d') as date,
+            COUNT(*) as totalCount,
+            SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completedCount,
+            SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END) as cancelledCount,
+            CASE 
+                WHEN COUNT(*) > 0 THEN ROUND(SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1)
+                ELSE 0 
+            END as completionRate
+        FROM appointment 
+        WHERE appointment_date BETWEEN #{startDate} AND #{endDate}
+        GROUP BY appointment_date
+        ORDER BY appointment_date ASC
+    </select>
+    
+    <!-- 获取最近预约列表 -->
+    <select id="getRecentAppointments" resultType="com.hospital.dto.StatisticsDTO$RecentAppointment">
+        SELECT
+            u.real_name as patientName,
+            d.doctor_name as doctorName,
+            dept.category_name as categoryName,
+            DATE_FORMAT(a.appointment_date, '%Y-%m-%d') as date,
+            a.status as status
+        FROM appointment a
+        INNER JOIN user u ON a.user_id = u.id
+        INNER JOIN tcm_doctor d ON a.doctor_id = d.id
+        INNER JOIN tcm_category dept ON a.category_id = dept.id
+        ORDER BY a.created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 获取患者最近预约 -->
+    <select id="getPatientRecentAppointments" resultType="com.hospital.dto.StatisticsDTO$RecentAppointment">
+        SELECT
+            u.real_name as patientName,
+            d.doctor_name as doctorName,
+            dept.category_name as categoryName,
+            DATE_FORMAT(a.appointment_date, '%Y-%m-%d') as date,
+            a.status as status
+        FROM appointment a
+        INNER JOIN user u ON a.user_id = u.id
+        INNER JOIN tcm_doctor d ON a.doctor_id = d.id
+        INNER JOIN tcm_category dept ON a.category_id = dept.id
+        WHERE a.user_id = #{patientId}
+        ORDER BY a.created_at DESC
+        LIMIT #{limit}
+    </select>
+    
+</mapper>

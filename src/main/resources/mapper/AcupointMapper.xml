@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.mapper.AcupointMapper">
+
+    <!-- ResultMap 定义 -->
+    <resultMap id="AcupointResultMap" type="com.hospital.entity.Acupoint">
+        <id property="id" column="id"/>
+        <result property="acupointName" column="acupoint_name"/>
+        <result property="pinyin" column="pinyin"/>
+        <result property="englishName" column="english_name"/>
+        <result property="meridian" column="meridian"/>
+        <result property="location" column="location"/>
+        <result property="category" column="category"/>
+        <result property="indications" column="efficacy"/>
+        <result property="massageMethod" column="massage_method"/>
+        <result property="precautions" column="precautions"/>
+        <result property="constitutionType" column="constitution_type"/>
+        <result property="image" column="image_url"/>
+        <result property="videoUrl" column="video_url"/>
+        <result property="viewCount" column="view_count"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 分页查询穴位列表 -->
+    <select id="selectAcupointPage" resultMap="AcupointResultMap">
+        SELECT * FROM acupoint
+        WHERE 1=1
+        <if test="meridian != null and meridian != ''">
+            AND meridian = #{meridian}
+        </if>
+        <if test="constitutionType != null and constitutionType != ''">
+            AND (constitution_type LIKE CONCAT('%', #{constitutionType}, '%') OR constitution_type = 'ALL')
+        </if>
+        ORDER BY view_count DESC, created_at DESC
+    </select>
+
+    <!-- 搜索穴位（按名称、拼音、主治） -->
+    <select id="searchAcupoints" resultMap="AcupointResultMap">
+        SELECT * FROM acupoint
+        WHERE (
+            acupoint_name LIKE CONCAT('%', #{keyword}, '%')
+            OR pinyin LIKE CONCAT('%', #{keyword}, '%')
+            OR efficacy LIKE CONCAT('%', #{keyword}, '%')
+        )
+        ORDER BY view_count DESC
+    </select>
+
+    <!-- 根据经络查询穴位 -->
+    <select id="selectByMeridian" resultMap="AcupointResultMap">
+        SELECT * FROM acupoint
+        WHERE meridian = #{meridian}
+        ORDER BY acupoint_name ASC
+    </select>
+
+    <!-- 根据体质推荐穴位 -->
+    <select id="selectRecommendedAcupoints" resultMap="AcupointResultMap">
+        SELECT * FROM acupoint
+        WHERE (constitution_type LIKE CONCAT('%', #{constitutionType}, '%') OR constitution_type = 'ALL')
+        ORDER BY view_count DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 根据ID列表批量查询穴位 -->
+    <select id="selectByIds" resultMap="AcupointResultMap">
+        SELECT * FROM acupoint
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- 获取所有经络列表 -->
+    <select id="selectAllMeridians" resultType="java.lang.String">
+        SELECT DISTINCT meridian
+        FROM acupoint
+        WHERE meridian IS NOT NULL
+        ORDER BY meridian
+    </select>
+
+    <!-- 增加浏览次数 -->
+    <update id="incrementViewCount">
+        UPDATE acupoint
+        SET view_count = view_count + 1
+        WHERE id = #{id}
+    </update>
+
+    <!-- 获取热门穴位 -->
+    <select id="selectPopularAcupoints" resultMap="AcupointResultMap">
+        SELECT * FROM acupoint
+        ORDER BY view_count DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>
+
