@@ -25,7 +25,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -183,20 +182,49 @@ public class AppointmentController {
     }
 
     /**
-     * 查询患者预约列表
+     * 查询患者预约列表（支持分页）
      */
     @GetMapping("/patient/list")
-    public Result<List<Appointment>> getPatientAppointments(HttpServletRequest request) {
+    public Result<IPage<Appointment>> getPatientAppointments(
+            HttpServletRequest request,
+            @RequestParam Map<String, Object> params) {
         Long userId = jwtUtil.getUserIdFromRequest(request);
 
-        QueryWrapper<Appointment> wrapper = new QueryWrapper<>();
-        wrapper.eq("user_id", userId)
-               .orderByDesc("created_at");
+        // 安全解析分页参数
+        Integer page = 1;
+        Integer pageSize = SystemConstants.DEFAULT_PAGE_SIZE;
 
-        List<Appointment> appointments = appointmentService.list(wrapper);
+        try {
+            if (params.containsKey("page") && params.get("page") != null) {
+                page = Integer.parseInt(params.get("page").toString());
+            }
+        } catch (NumberFormatException e) {
+            log.warn("无效的页码参数：{}", params.get("page"));
+        }
+
+        try {
+            if (params.containsKey("pageSize") && params.get("pageSize") != null) {
+                pageSize = Integer.parseInt(params.get("pageSize").toString());
+            }
+        } catch (NumberFormatException e) {
+            log.warn("无效的页面大小参数：{}", params.get("pageSize"));
+        }
+
+        QueryWrapper<Appointment> wrapper = new QueryWrapper<>();
+        wrapper.eq("user_id", userId);
+
+        // 状态筛选
+        if (params.containsKey("status") && StringUtils.hasText((String) params.get("status"))) {
+            wrapper.eq("status", params.get("status"));
+        }
+
+        wrapper.orderByDesc("created_at");
+
+        Page<Appointment> pageObject = new Page<>(page, pageSize);
+        IPage<Appointment> appointments = appointmentService.page(pageObject, wrapper);
 
         // 使用Service层方法丰富预约信息（关联查询医生、科室、患者信息）
-        ((com.hospital.service.impl.AppointmentServiceImpl) appointmentService).enrichAppointmentList(appointments);
+        ((com.hospital.service.impl.AppointmentServiceImpl) appointmentService).enrichAppointmentPage(appointments);
 
         return Result.success(appointments);
     }
