@@ -127,9 +127,38 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
     public void destroy() {
         if (openAiService != null) {
             try {
-                openAiService.shutdownExecutor();
+                // 使用反射检查executorService字段是否存在且不为null
+                java.lang.reflect.Field executorField = null;
+                try {
+                    executorField = openAiService.getClass().getDeclaredField("executorService");
+                    executorField.setAccessible(true);
+                    java.util.concurrent.ExecutorService executorService = 
+                        (java.util.concurrent.ExecutorService) executorField.get(openAiService);
+                    
+                    if (executorService != null && !executorService.isShutdown()) {
+                        openAiService.shutdownExecutor();
+                        log.info("OpenAI服务已关闭");
+                    } else {
+                        log.debug("OpenAI服务executorService已关闭或为null，跳过关闭操作");
+                    }
+                } catch (NoSuchFieldException | IllegalAccessException e) {
+                    // 如果字段不存在或无法访问，尝试直接关闭（可能会抛出异常，但会被捕获）
+                    try {
+                        openAiService.shutdownExecutor();
+                        log.info("OpenAI服务已关闭");
+                    } catch (NullPointerException npe) {
+                        // executorService为null时的正常情况，忽略
+                        log.debug("OpenAI服务executorService为null，无需关闭");
+                    } catch (Exception ex) {
+                        log.warn("关闭OpenAI服务时出错: {}", ex.getMessage());
+                    }
+                } finally {
+                    if (executorField != null) {
+                        executorField.setAccessible(false);
+                    }
+                }
             } catch (Exception e) {
-                log.warn("关闭OpenAI服务时出错", e);
+                log.warn("关闭OpenAI服务时出错: {}", e.getMessage());
             }
         }
     }
