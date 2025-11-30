@@ -138,7 +138,7 @@
         SELECT
             u.real_name as patientName,
             d.doctor_name as doctorName,
-            dept.category_name as categoryName,
+            dept.category_name as deptName,
             DATE_FORMAT(a.appointment_date, '%Y-%m-%d') as date,
             a.status as status
         FROM appointment a
@@ -154,7 +154,7 @@
         SELECT
             u.real_name as patientName,
             d.doctor_name as doctorName,
-            dept.category_name as categoryName,
+            dept.category_name as deptName,
             DATE_FORMAT(a.appointment_date, '%Y-%m-%d') as date,
             a.status as status
         FROM appointment a
