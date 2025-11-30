@@ -3,22 +3,26 @@ package com.hospital.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.lang.TypeReference;
 import cn.hutool.json.JSONUtil;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.hospital.common.result.Result;
 import com.hospital.common.result.ResultCode;
 import com.hospital.dto.request.SubmitTestRequest;
 import com.hospital.dto.response.ConstitutionTypeResponse;
 import com.hospital.dto.response.QuestionnaireResponse;
 import com.hospital.dto.response.TestResultResponse;
-import com.hospital.entity.*;
-import com.hospital.mapper.*;
+import com.hospital.entity.ConstitutionQuestionnaire;
+import com.hospital.entity.ConstitutionType;
+import com.hospital.entity.QuestionnaireOption;
+import com.hospital.entity.UserConstitutionTest;
+import com.hospital.mapper.ConstitutionQuestionnaireMapper;
+import com.hospital.mapper.ConstitutionTypeMapper;
+import com.hospital.mapper.QuestionnaireOptionMapper;
+import com.hospital.mapper.UserConstitutionTestMapper;
 import com.hospital.service.ConstitutionTestService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -73,7 +77,6 @@ public class ConstitutionTestServiceImpl implements ConstitutionTestService {
                 try {
                     @SuppressWarnings("unchecked")
                     List<QuestionnaireResponse> list = (List<QuestionnaireResponse>) cached;
-                    log.info("从缓存获取问卷数据，共{}题", list.size());
                     return Result.success(list);
                 } catch (ClassCastException ignored) {}
             }
@@ -107,7 +110,6 @@ public class ConstitutionTestServiceImpl implements ConstitutionTestService {
             // 6. 存入缓存（永久）
             redisUtil.set(cacheKey, responseList);
 
-            log.info("成功获取问卷，共{}题", responseList.size());
             return Result.success(responseList);
 
         } catch (Exception e) {
@@ -158,7 +160,7 @@ public class ConstitutionTestServiceImpl implements ConstitutionTestService {
                 // 计算原始分
                 int rawScore = 0;
                 int questionCount = typeQuestions.size();
-                
+
                 for (ConstitutionQuestionnaire question : typeQuestions) {
                     Long optionId = answers.get(question.getId());
                     if (optionId != null && optionScoreMap.containsKey(optionId)) {
@@ -215,7 +217,7 @@ public class ConstitutionTestServiceImpl implements ConstitutionTestService {
                             com.hospital.entity.User patient = userMapper.selectById(userId);
                             String patientName = patient != null && patient.getRealName() != null ? patient.getRealName() : "患者";
                             // 使用体质类型的中文名称而不是代码
-                            String constitutionName = primaryType != null && primaryType.getTypeName() != null ? 
+                            String constitutionName = primaryType != null && primaryType.getTypeName() != null ?
                                     primaryType.getTypeName() : primaryConstitution;
                             String content = String.format("患者%s已完成体质测试，主要体质：%s", patientName, constitutionName);
                             notificationService.createAndSendNotification(
@@ -228,7 +230,7 @@ public class ConstitutionTestServiceImpl implements ConstitutionTestService {
                     }
                 }
             } catch (Exception e) {
-                log.warn("发送体质测试完成通知失败: userId={}, appointmentId={}, error={}", 
+                log.warn("发送体质测试完成通知失败: userId={}, appointmentId={}, error={}",
                         userId, request.getAppointmentId(), e.getMessage());
             }
 
@@ -251,7 +253,7 @@ public class ConstitutionTestServiceImpl implements ConstitutionTestService {
     public Result<List<TestResultResponse>> getTestHistory(Long userId) {
         try {
             List<UserConstitutionTest> tests = testMapper.selectHistoryByUserId(userId);
-            
+
             List<TestResultResponse> responseList = tests.stream()
                     .map(test -> {
                         ConstitutionType primaryType = constitutionTypeMapper.selectByTypeCode(test.getPrimaryConstitution());
@@ -263,7 +265,6 @@ public class ConstitutionTestServiceImpl implements ConstitutionTestService {
                     })
                     .collect(Collectors.toList());
 
-            log.info("成功获取用户{}的测试历史，共{}条", userId, responseList.size());
             return Result.success(responseList);
 
         } catch (Exception e) {
@@ -291,7 +292,6 @@ public class ConstitutionTestServiceImpl implements ConstitutionTestService {
             Map<String, Double> scores = parseScoresFromJson(test.getTestResult());
             TestResultResponse response = buildTestResultResponse(test, primaryType, secondaryType, scores);
 
-            log.info("成功获取用户{}的最新测试结果", userId);
             return Result.success(response);
 
         } catch (Exception e) {
@@ -319,7 +319,6 @@ public class ConstitutionTestServiceImpl implements ConstitutionTestService {
             Map<String, Double> scores = parseScoresFromJson(test.getTestResult());
             TestResultResponse response = buildTestResultResponse(test, primaryType, secondaryType, scores);
 
-            log.info("成功获取测试报告: {}", testId);
             return Result.success(response);
 
         } catch (Exception e) {
@@ -444,7 +443,6 @@ public class ConstitutionTestServiceImpl implements ConstitutionTestService {
 
             TestResultResponse response = buildTestResultResponse(test, primaryType, secondaryType, scores);
 
-            log.info("成功获取预约{}的体质测试结果", appointmentId);
             return Result.success(response);
 
         } catch (Exception e) {

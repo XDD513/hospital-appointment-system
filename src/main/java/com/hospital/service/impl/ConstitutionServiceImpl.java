@@ -1,12 +1,12 @@
 package com.hospital.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import com.hospital.common.constant.CacheConstants;
 import com.hospital.common.result.Result;
 import com.hospital.common.result.ResultCode;
 import com.hospital.dto.response.ConstitutionTypeResponse;
 import com.hospital.entity.ConstitutionType;
 import com.hospital.mapper.ConstitutionTypeMapper;
-import com.hospital.common.constant.CacheConstants;
 import com.hospital.service.ConstitutionService;
 import com.hospital.util.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -42,7 +41,6 @@ public class ConstitutionServiceImpl implements ConstitutionService {
             // 1. 尝试从缓存获取
             Object cached = redisUtil.get(CacheConstants.CONSTITUTION_TYPES_CACHE_KEY);
             if (cached != null) {
-                log.info("从缓存获取体质类型列表");
                 @SuppressWarnings("unchecked")
                 List<ConstitutionTypeResponse> cachedList = (List<ConstitutionTypeResponse>) cached;
                 return Result.success(cachedList);
@@ -50,7 +48,7 @@ public class ConstitutionServiceImpl implements ConstitutionService {
 
             // 2. 从数据库查询
             List<ConstitutionType> constitutionTypes = constitutionTypeMapper.selectAllOrdered();
-            
+
             // 3. 转换为DTO
             List<ConstitutionTypeResponse> responseList = constitutionTypes.stream()
                     .map(type -> BeanUtil.copyProperties(type, ConstitutionTypeResponse.class))
@@ -59,7 +57,6 @@ public class ConstitutionServiceImpl implements ConstitutionService {
             // 4. 存入缓存（永久）
             redisUtil.set(CacheConstants.CONSTITUTION_TYPES_CACHE_KEY, responseList);
 
-            log.info("成功获取体质类型列表，共{}种体质", responseList.size());
             return Result.success(responseList);
 
         } catch (Exception e) {
@@ -78,7 +75,6 @@ public class ConstitutionServiceImpl implements ConstitutionService {
             String cacheKey = CacheConstants.CONSTITUTION_TYPE_CACHE_PREFIX + typeCode;
             Object cached = redisUtil.get(cacheKey);
             if (cached != null) {
-                log.info("从缓存获取体质详情: {}", typeCode);
                 return Result.success((ConstitutionTypeResponse) cached);
             }
 
@@ -95,7 +91,6 @@ public class ConstitutionServiceImpl implements ConstitutionService {
             // 4. 存入缓存（永久）
             redisUtil.set(cacheKey, response);
 
-            log.info("成功获取体质详情: {}", typeCode);
             return Result.success(response);
 
         } catch (Exception e) {

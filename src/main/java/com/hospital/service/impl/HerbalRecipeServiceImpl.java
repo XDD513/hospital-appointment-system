@@ -3,6 +3,8 @@ package com.hospital.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hospital.common.result.Result;
 import com.hospital.common.result.ResultCode;
 import com.hospital.entity.HerbalRecipe;
@@ -21,10 +23,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -92,7 +90,7 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
                         // 性能优化：只对前3个药膳生成AI推荐理由
                         int aiRecommendationLimit = 3;
                         int index = 0;
-                        
+
                         for (HerbalRecipe recipe : cachedPage.getRecords()) {
                             UserRecipeFavorite favorite = userRecipeFavoriteMapper.selectByUserIdAndRecipeId(userId, recipe.getId());
                             recipe.setIsFavorited(favorite != null);
@@ -113,7 +111,6 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
                             }
                             index++;
                         }
-                        log.info("从缓存获取推荐药膳");
                         return Result.success(cachedPage);
                     } catch (ClassCastException ignored) {}
                 }
@@ -127,7 +124,7 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
             // 性能优化：只对前3个药膳生成AI推荐理由，其他使用默认理由，避免响应时间过长
             int aiRecommendationLimit = 3;
             int index = 0;
-            
+
             for (HerbalRecipe recipe : result.getRecords()) {
                 UserRecipeFavorite favorite = userRecipeFavoriteMapper.selectByUserIdAndRecipeId(userId, recipe.getId());
                 recipe.setIsFavorited(favorite != null);
@@ -186,7 +183,6 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
                                 recipe.setIsFavorited(favorite != null);
                             }
                         }
-                        log.info("从缓存获取全部药膳列表");
                         return Result.success(cachedPage);
                     } catch (ClassCastException ignored) {}
                 }
@@ -208,7 +204,6 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
                 redisUtil.set(cacheKey, result, 15, java.util.concurrent.TimeUnit.MINUTES);
             }
 
-            log.info("获取全部药膳列表，共{}条", result.getTotal());
             return Result.success(result);
         } catch (Exception e) {
             log.error("获取全部药膳列表失败", e);
@@ -257,7 +252,6 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
                                 recipe.setIsFavorited(favorite != null);
                             }
                         }
-                        log.info("从缓存获取药膳搜索结果");
                         return Result.success(cachedPage);
                     } catch (ClassCastException ignored) {}
                 }
@@ -309,7 +303,6 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
             HerbalRecipe recipe = null;
             if (cached instanceof HerbalRecipe) {
                 recipe = (HerbalRecipe) cached;
-                log.info("从缓存获取药膳详情: {}", recipeId);
             } else {
                 recipe = herbalRecipeMapper.selectById(recipeId);
                 if (recipe == null) {
@@ -332,7 +325,6 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
             // 补全食材备注信息
             enrichIngredientsWithNotes(recipe);
 
-            log.info("获取药膳详情: {}，用户ID：{}", recipeId, userId);
             return Result.success(recipe);
 
         } catch (Exception e) {
@@ -357,7 +349,6 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
                     @SuppressWarnings("unchecked")
                     List<HerbalRecipe> list = (List<HerbalRecipe>) cached;
                     recipes = list;
-                    log.info("从缓存获取热门药膳");
                 } catch (ClassCastException ignored) {}
             }
 
@@ -375,7 +366,6 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
                 }
             }
 
-            log.info("获取热门药膳，共{}条", recipes.size());
             return Result.success(recipes);
 
         } catch (Exception e) {
@@ -400,7 +390,6 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
                     @SuppressWarnings("unchecked")
                     List<HerbalRecipe> list = (List<HerbalRecipe>) cached;
                     recipes = list;
-                    log.info("从缓存获取时令药膳");
                 } catch (ClassCastException ignored) {}
             }
 
@@ -418,7 +407,6 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
                 }
             }
 
-            log.info("获取时令药膳：{}，共{}条", season, recipes.size());
             return Result.success(recipes);
 
         } catch (Exception e) {
@@ -507,8 +495,7 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
 
             // 注意：这里返回的是UserRecipeFavorite的分页，但包含了HerbalRecipe的字段
             // 实际使用时可能需要转换为HerbalRecipe类型
-            log.info("获取用户{}的收藏列表，共{}条", userId, favorites.getTotal());
-            
+
             // 简化处理：直接返回（实际项目中可能需要类型转换）
             @SuppressWarnings("unchecked")
             IPage<HerbalRecipe> result = (IPage<HerbalRecipe>) (IPage<?>) favorites;
@@ -527,7 +514,6 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
     public Result<List<Ingredient>> getIngredientsByConstitution(String constitutionType) {
         try {
             List<Ingredient> ingredients = ingredientMapper.selectByConstitutionType(constitutionType);
-            log.info("获取体质{}的适用食材，共{}种", constitutionType, ingredients.size());
             return Result.success(ingredients);
 
         } catch (Exception e) {
@@ -587,12 +573,12 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
                     if (ingredientInfo != null) {
                         // 构建备注信息
                         StringBuilder note = new StringBuilder();
-                        
+
                         // 性味
                         if (StringUtils.hasText(ingredientInfo.getProperties())) {
                             note.append("性味：").append(ingredientInfo.getProperties());
                         }
-                        
+
                         // 味道
                         if (StringUtils.hasText(ingredientInfo.getFlavor())) {
                             if (note.length() > 0) {
@@ -600,7 +586,7 @@ public class HerbalRecipeServiceImpl implements HerbalRecipeService {
                             }
                             note.append("味：").append(ingredientInfo.getFlavor());
                         }
-                        
+
                         // 功效
                         if (StringUtils.hasText(ingredientInfo.getEfficacy())) {
                             if (note.length() > 0) {

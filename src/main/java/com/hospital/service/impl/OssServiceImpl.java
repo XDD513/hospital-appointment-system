@@ -56,7 +56,7 @@ public class OssServiceImpl implements OssService {
             }
 
             // 生成唯一文件名
-            String fileName = folder + UUID.randomUUID().toString() + extension;
+            String fileName = folder + UUID.randomUUID() + extension;
 
             // 上传文件 - 使用try-with-resources确保流被正确关闭
             try (InputStream inputStream = file.getInputStream()) {
@@ -69,12 +69,11 @@ public class OssServiceImpl implements OssService {
             }
 
             // 构建文件访问URL
-            String fileUrl = ossConfig.getUrlProtocol() + "://" + 
-                             ossConfig.getBucketName() + "." + 
-                             ossConfig.getEndpoint() + "/" + 
+            String fileUrl = ossConfig.getUrlProtocol() + "://" +
+                             ossConfig.getBucketName() + "." +
+                             ossConfig.getEndpoint() + "/" +
                              fileName;
 
-            log.info("文件上传成功: fileName={}, url={}", fileName, fileUrl);
             return fileUrl;
 
         } catch (Exception e) {
@@ -109,26 +108,22 @@ public class OssServiceImpl implements OssService {
             // URL格式: https://bucket-name.endpoint/file-path
             String bucketEndpoint = ossConfig.getBucketName() + "." + ossConfig.getEndpoint();
             String filePath;
-            
+
             if (fileUrl.contains(bucketEndpoint)) {
                 filePath = fileUrl.substring(fileUrl.indexOf(bucketEndpoint) + bucketEndpoint.length() + 1);
             } else if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
-                // 如果URL格式不标准，尝试从末尾提取
                 int lastSlashIndex = fileUrl.lastIndexOf("/");
                 if (lastSlashIndex > 0) {
                     filePath = fileUrl.substring(lastSlashIndex + 1);
                 } else {
-                    log.warn("无法从URL中提取文件路径: {}", fileUrl);
                     return false;
                 }
             } else {
-                // 直接是文件路径
                 filePath = fileUrl;
             }
 
             // 删除文件
             ossClient.deleteObject(ossConfig.getBucketName(), filePath);
-            log.info("文件删除成功: filePath={}", filePath);
             return true;
 
         } catch (Exception e) {
@@ -150,8 +145,17 @@ public class OssServiceImpl implements OssService {
             return null;
         }
 
-        // 如果URL不是OSS URL，直接返回
-        if (!fileUrl.contains(ossConfig.getBucketName() + "." + ossConfig.getEndpoint())) {
+        // 验证OSS配置
+        if (ossConfig.getBucketName() == null || ossConfig.getEndpoint() == null ||
+            ossConfig.getAccessKeyId() == null || ossConfig.getAccessKeySecret() == null) {
+            log.error("OSS配置不完整，无法生成签名URL");
+            return fileUrl;
+        }
+
+        String bucketEndpoint = ossConfig.getBucketName() + "." + ossConfig.getEndpoint();
+
+        // 验证URL是否包含bucket和endpoint
+        if (!fileUrl.contains(bucketEndpoint)) {
             return fileUrl;
         }
 
@@ -165,63 +169,51 @@ public class OssServiceImpl implements OssService {
             );
 
             // 从URL中提取文件路径
-            // URL格式: https://bucket-name.endpoint/file-path
-            String filePath;
-            
-            // 移除协议前缀
             String urlWithoutProtocol = fileUrl;
             if (fileUrl.startsWith("https://")) {
                 urlWithoutProtocol = fileUrl.substring(8);
             } else if (fileUrl.startsWith("http://")) {
                 urlWithoutProtocol = fileUrl.substring(7);
             }
-            
-            // 查找bucket和endpoint后的路径
-            String bucketEndpoint = ossConfig.getBucketName() + "." + ossConfig.getEndpoint();
+
             int bucketIndex = urlWithoutProtocol.indexOf(bucketEndpoint);
-            
+            String filePath;
+
             if (bucketIndex >= 0) {
-                // 找到bucket位置，提取后面的路径
                 int pathStart = bucketIndex + bucketEndpoint.length();
                 if (pathStart < urlWithoutProtocol.length() && urlWithoutProtocol.charAt(pathStart) == '/') {
-                    pathStart++; // 跳过斜杠
+                    pathStart++;
                 }
                 filePath = urlWithoutProtocol.substring(pathStart);
             } else {
-                // 如果找不到bucket，尝试从最后一个斜杠提取文件名
                 int lastSlashIndex = urlWithoutProtocol.lastIndexOf("/");
                 if (lastSlashIndex > 0 && lastSlashIndex < urlWithoutProtocol.length() - 1) {
                     filePath = urlWithoutProtocol.substring(lastSlashIndex + 1);
                 } else {
-                    log.warn("无法从URL中提取文件路径: {}", fileUrl);
                     return fileUrl;
                 }
             }
-            
 
-            // 设置过期时间
-            Date expiration = new Date(new Date().getTime() + expirationMinutes * 60 * 1000L);
-            
             // 生成签名URL
+            Date expiration = new Date(new Date().getTime() + expirationMinutes * 60 * 1000L);
             GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
                     ossConfig.getBucketName(),
                     filePath
             );
             request.setExpiration(expiration);
             request.setMethod(com.aliyun.oss.HttpMethod.GET);
-            
+
             URL signedUrl = ossClient.generatePresignedUrl(request);
             String signedUrlStr = signedUrl.toString();
             if ("https".equalsIgnoreCase(ossConfig.getUrlProtocol()) && signedUrlStr.startsWith("http://")) {
                 signedUrlStr = signedUrlStr.replaceFirst("http://", "https://");
             }
-            
-            log.info("生成签名URL成功: filePath={}, expirationMinutes={}", filePath, expirationMinutes);
+
             return signedUrlStr;
 
         } catch (Exception e) {
-            log.error("生成签名URL失败: url={}, error={}", fileUrl, e.getMessage(), e);
-            return fileUrl; // 失败时返回原URL
+            log.error("生成签名URL失败: url={}, error={}", fileUrl, e.getMessage());
+            return fileUrl;
         } finally {
             if (ossClient != null) {
                 ossClient.shutdown();

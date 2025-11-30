@@ -17,10 +17,20 @@
             u.phone as phone,
             TIME_FORMAT(s.start_time, '%H:%i') as appointmentTime,
             a.time_slot as timeSlot,
-            a.status
+            a.status,
+            DATE_FORMAT(a.appointment_date, '%Y-%m-%d') as appointmentDateStr,
+            DAYNAME(a.appointment_date) as dayOfWeek,
+            a.consultation_fee as consultationFee,
+            COALESCE(CONCAT(d.category_name, ' ', COALESCE(d.location, '')), d.category_name, '') as consultationAddress,
+            d.category_name as deptName,
+            d.location as location,
+            DATE_FORMAT(a.created_at, '%Y-%m-%d %H:%i:%s') as createTime,
+            doc.doctor_name as doctorName
         FROM appointment a
         INNER JOIN user u ON a.user_id = u.id
         LEFT JOIN schedule s ON a.schedule_id = s.id
+        LEFT JOIN tcm_category d ON a.category_id = d.id
+        LEFT JOIN tcm_doctor doc ON a.doctor_id = doc.id
         WHERE a.doctor_id = #{doctorId}
         AND DATE(a.appointment_date) = CURDATE()
         AND a.status IN ('CONFIRMED', 'IN_PROGRESS')

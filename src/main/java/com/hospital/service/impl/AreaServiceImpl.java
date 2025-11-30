@@ -50,7 +50,6 @@ public class AreaServiceImpl implements AreaService {
                 try {
                     @SuppressWarnings("unchecked")
                     List<AreaInfoDTO> cachedList = (List<AreaInfoDTO>) cached;
-                    log.info("从缓存获取省份列表");
                     return Result.success(cachedList);
                 } catch (ClassCastException ignored) {}
             }
@@ -87,7 +86,6 @@ public class AreaServiceImpl implements AreaService {
                 try {
                     @SuppressWarnings("unchecked")
                     List<AreaInfoDTO> cachedList = (List<AreaInfoDTO>) cached;
-                    log.info("从缓存获取城市列表: provinceId={}", provinceId);
                     return Result.success(cachedList);
                 } catch (ClassCastException ignored) {}
             }
@@ -124,7 +122,6 @@ public class AreaServiceImpl implements AreaService {
                 try {
                     @SuppressWarnings("unchecked")
                     List<AreaInfoDTO> cachedList = (List<AreaInfoDTO>) cached;
-                    log.info("从缓存获取区县列表: cityId={}", cityId);
                     return Result.success(cachedList);
                 } catch (ClassCastException ignored) {}
             }
@@ -251,7 +248,6 @@ public class AreaServiceImpl implements AreaService {
                     .filter(dto -> dto.getId() != null && dto.getName() != null)
                     .collect(Collectors.toList());
 
-            log.info("成功获取区域数据: count={}", areaList.size());
             return areaList;
 
         } catch (Exception e) {

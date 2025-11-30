@@ -1,10 +1,6 @@
 package com.hospital.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.annotation.Version;
+import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
@@ -116,10 +112,22 @@ public class Appointment implements Serializable {
     private String status;
 
     /**
+     * 预约金额（挂号费）
+     */
+    @TableField("consultation_fee")
+    private BigDecimal consultationFee;
+
+    /**
      * 取消原因
      */
     @TableField("cancel_reason")
     private String cancelReason;
+
+    /**
+     * 备注
+     */
+    @TableField("note")
+    private String note;
 
     /**
      * 创建时间
@@ -143,19 +151,19 @@ public class Appointment implements Serializable {
     private Integer version;
 
     // 以下字段用于关联查询，不存在于数据库表中
-    
+
     /**
      * 医生姓名（关联查询）
      */
     @TableField(exist = false)
     private String doctorName;
-    
+
     /**
      * 医生职称（关联查询）
      */
     @TableField(exist = false)
     private String doctorTitle;
-    
+
     /**
      * 分类名称（关联查询）
      */
@@ -167,11 +175,5 @@ public class Appointment implements Serializable {
      */
     @TableField(exist = false)
     private String deptName;
-    
-    /**
-     * 挂号费（关联查询）
-     */
-    @TableField(exist = false)
-    private BigDecimal consultationFee;
 }
 

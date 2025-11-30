@@ -1,6 +1,9 @@
 package com.hospital.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hospital.common.constant.CacheConstants;
 import com.hospital.config.DeepSeekConfig;
 import com.hospital.entity.HerbalRecipe;
 import com.hospital.entity.UserConstitutionTest;
@@ -9,35 +12,32 @@ import com.hospital.mapper.HerbalRecipeMapper;
 import com.hospital.mapper.UserConstitutionTestMapper;
 import com.hospital.mapper.UserRecipeFavoriteMapper;
 import com.hospital.service.AiRecommendationService;
-import com.hospital.util.RedisUtil;
-import com.hospital.common.constant.CacheConstants;
 import com.hospital.util.CacheKeyBuilder;
 import com.hospital.util.CacheTtlPolicy;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hospital.util.RedisUtil;
 import com.theokanning.openai.client.OpenAiApi;
 import com.theokanning.openai.completion.chat.ChatCompletionRequest;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.completion.chat.ChatMessageRole;
 import com.theokanning.openai.service.OpenAiService;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
-import retrofit2.Retrofit;
-import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
-import retrofit2.converter.jackson.JacksonConverterFactory;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import retrofit2.Retrofit;
+import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
+import retrofit2.converter.jackson.JacksonConverterFactory;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * AI推荐服务实现类
@@ -157,7 +157,6 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
         // 尝试从缓存获取
         Object cached = redisUtil.get(cacheKey);
         if (cached instanceof String) {
-            log.debug("从缓存获取推荐理由：recipeId={}", recipe.getId());
             return (String) cached;
         }
 
@@ -210,7 +209,6 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
             try {
                 @SuppressWarnings("unchecked")
                 List<HerbalRecipe> cachedList = (List<HerbalRecipe>) cached;
-                log.debug("从缓存获取对话推荐结果");
                 return cachedList;
             } catch (ClassCastException ignored) {}
         }
@@ -265,7 +263,6 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
         // 尝试从缓存获取
         Object cached = redisUtil.get(cacheKey);
         if (cached instanceof String) {
-            log.debug("从缓存获取问答结果");
             return (String) cached;
         }
 
@@ -529,22 +526,20 @@ public class AiRecommendationServiceImpl implements AiRecommendationService {
      * 构建对话推荐Prompt
      */
     private String buildConversationRecommendationPrompt(String conversationContent) {
-        StringBuilder prompt = new StringBuilder();
-        prompt.append("根据以下用户对话内容，推荐3-5道适合的药膳，只返回中文药膳名称列表（每行一个，仅使用中文）：\n\n");
-        prompt.append("【对话内容】\n").append(conversationContent).append("\n\n");
-        prompt.append("请基于中医理论，推荐适合的药膳。只返回中文药膳名称，不要使用英文或其他语言。");
-        return prompt.toString();
+        String prompt = "根据以下用户对话内容，推荐3-5道适合的药膳，只返回中文药膳名称列表（每行一个，仅使用中文）：\n\n" +
+                "【对话内容】\n" + conversationContent + "\n\n" +
+                "请基于中医理论，推荐适合的药膳。只返回中文药膳名称，不要使用英文或其他语言。";
+        return prompt;
     }
 
     /**
      * 构建问答Prompt
      */
     private String buildQuestionAnswerPrompt(String question) {
-        StringBuilder prompt = new StringBuilder();
-        prompt.append("请作为专业的中医健康顾问，回答以下问题。回答要专业、准确、易懂（200字以内，仅使用中文）：\n\n");
-        prompt.append("【问题】\n").append(question);
-        prompt.append("\n\n请用中文回答，不要使用英文或其他语言。");
-        return prompt.toString();
+        String prompt = "请作为专业的中医健康顾问，回答以下问题。回答要专业、准确、易懂（200字以内，仅使用中文）：\n\n" +
+                "【问题】\n" + question +
+                "\n\n请用中文回答，不要使用英文或其他语言。";
+        return prompt;
     }
 
     /**

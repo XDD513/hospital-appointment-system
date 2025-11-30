@@ -1,45 +1,35 @@
 package com.hospital.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.hospital.common.constant.AppointmentStatus;
+import com.hospital.common.constant.CacheConstants;
 import com.hospital.common.exception.BusinessException;
 import com.hospital.common.result.Result;
 import com.hospital.common.result.ResultCode;
-import com.hospital.entity.Doctor;
-import com.hospital.entity.Department;
-import com.hospital.entity.User;
-import com.hospital.common.constant.AppointmentStatus;
+import com.hospital.config.AvatarConfig;
+import com.hospital.config.UserConfig;
 import com.hospital.entity.Appointment;
+import com.hospital.entity.Department;
+import com.hospital.entity.Doctor;
+import com.hospital.entity.User;
 import com.hospital.mapper.AppointmentMapper;
+import com.hospital.mapper.DepartmentMapper;
 import com.hospital.mapper.DoctorMapper;
 import com.hospital.mapper.UserMapper;
-import com.hospital.mapper.DepartmentMapper;
 import com.hospital.service.DoctorService;
 import com.hospital.service.OssService;
 import com.hospital.util.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.concurrent.TimeUnit;
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
-
-/**
- * 医生服务实现类
- *
- * @author Hospital Team
- * @since 2025-10-24
- */
-import com.hospital.common.constant.CacheConstants;
-import com.hospital.common.constant.DefaultConstants;
-import com.hospital.config.AvatarConfig;
-import com.hospital.config.UserConfig;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -116,9 +106,8 @@ public class DoctorServiceImpl implements DoctorService {
                         if (user != null) {
                             doctor.setGender(user.getGender());
                             doctor.setBirthday(user.getBirthDate());
-                            if (StringUtils.hasText(user.getAvatar())) {
-                                doctor.setAvatar(user.getAvatar());
-                            }
+                            // 确保头像字段被设置（即使为空也要设置，后续会处理默认头像）
+                            doctor.setAvatar(user.getAvatar());
                             // 补充缺失的基本信息
                             if (doctor.getDoctorName() == null || doctor.getDoctorName().isEmpty()) {
                                 doctor.setDoctorName(user.getRealName());
@@ -186,9 +175,8 @@ public class DoctorServiceImpl implements DoctorService {
                         if (user != null) {
                             doctor.setGender(user.getGender());
                             doctor.setBirthday(user.getBirthDate());
-                            if (StringUtils.hasText(user.getAvatar())) {
-                                doctor.setAvatar(user.getAvatar());
-                            }
+                            // 确保头像字段被设置（即使为空也要设置，后续会处理默认头像）
+                            doctor.setAvatar(user.getAvatar());
                             // 补充缺失的基本信息
                             if (doctor.getDoctorName() == null || doctor.getDoctorName().isEmpty()) {
                                 doctor.setDoctorName(user.getRealName());
@@ -256,9 +244,8 @@ public class DoctorServiceImpl implements DoctorService {
                         if (user != null) {
                             doctor.setGender(user.getGender());
                             doctor.setBirthday(user.getBirthDate());
-                            if (StringUtils.hasText(user.getAvatar())) {
-                                doctor.setAvatar(user.getAvatar());
-                            }
+                            // 确保头像字段被设置（即使为空也要设置，后续会处理默认头像）
+                            doctor.setAvatar(user.getAvatar());
                             // 补充缺失的基本信息
                             if (doctor.getDoctorName() == null || doctor.getDoctorName().isEmpty()) {
                                 doctor.setDoctorName(user.getRealName());
@@ -502,7 +489,7 @@ public class DoctorServiceImpl implements DoctorService {
             // 4. 检查是否有未完成的预约
             QueryWrapper<Appointment> appointmentWrapper = new QueryWrapper<>();
             appointmentWrapper.eq("doctor_id", doctor.getId())
-                    .in("status", 
+                    .in("status",
                         AppointmentStatus.PENDING_PAYMENT.getCode(),
                         AppointmentStatus.PENDING_VISIT.getCode(),
                         AppointmentStatus.CONFIRMED.getCode(),
@@ -554,7 +541,6 @@ public class DoctorServiceImpl implements DoctorService {
             String cacheKey = "hospital:doctor:profile:userId:" + userId;
             Object cached = redisUtil.get(cacheKey);
             if (cached instanceof Doctor) {
-                log.info("从缓存获取医生信息成功");
                 return Result.success((Doctor) cached);
             }
 

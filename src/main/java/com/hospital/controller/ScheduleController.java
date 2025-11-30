@@ -7,26 +7,24 @@ import com.hospital.annotation.OperationLog;
 import com.hospital.common.constant.CacheConstants;
 import com.hospital.common.constant.SystemConstants;
 import com.hospital.common.result.Result;
-import com.hospital.entity.Schedule;
-import com.hospital.entity.Doctor;
-import com.hospital.entity.Department;
-import com.hospital.service.ScheduleService;
 import com.hospital.dto.request.BatchCreateScheduleRequest;
-import com.hospital.mapper.DoctorMapper;
+import com.hospital.entity.Department;
+import com.hospital.entity.Doctor;
+import com.hospital.entity.Schedule;
 import com.hospital.mapper.DepartmentMapper;
+import com.hospital.mapper.DoctorMapper;
+import com.hospital.service.ScheduleService;
 import com.hospital.util.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.concurrent.TimeUnit;
-
-import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -39,10 +37,10 @@ public class ScheduleController {
 
     @Autowired
     private ScheduleService scheduleService;
-    
+
     @Autowired
     private DoctorMapper doctorMapper;
-    
+
     @Autowired
     private DepartmentMapper departmentMapper;
 
@@ -195,15 +193,14 @@ public class ScheduleController {
             if (cached != null) {
                 @SuppressWarnings("unchecked")
                 IPage<Schedule> cachedPage = (IPage<Schedule>) cached;
-                log.info("从缓存获取排班列表: page={}, pageSize={}", page, pageSize);
                 return Result.success(cachedPage);
             }
         }
-        
+
         Page<Schedule> pageObject = new Page<>(page, pageSize);
 
         IPage<Schedule> schedules = scheduleService.page(pageObject, wrapper);
-        
+
         // 批量关联医生和科室信息（避免N+1查询）
         List<Schedule> scheduleList = schedules.getRecords();
         if (!scheduleList.isEmpty()) {
@@ -212,12 +209,12 @@ public class ScheduleController {
                 .map(Schedule::getDoctorId)
                 .distinct()
                 .collect(Collectors.toList());
-            
+
             // 批量查询医生信息
             List<Doctor> doctors = doctorMapper.selectBatchIds(doctorIds);
             Map<Long, Doctor> doctorMap = doctors.stream()
                 .collect(Collectors.toMap(Doctor::getId, doctor -> doctor));
-            
+
             // 获取所有中医分类ID
             List<Long> categoryIds = doctors.stream()
                 .map(Doctor::getCategoryId)
@@ -253,7 +250,7 @@ public class ScheduleController {
             redisUtil.set(cacheKey, schedules, CacheConstants.ADMIN_SCHEDULE_LIST_TTL_SECONDS, TimeUnit.SECONDS);
             log.info("已缓存排班列表: page={}, pageSize={}", page, pageSize);
         }
-        
+
         return Result.success(schedules);
     }
 

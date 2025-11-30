@@ -1,12 +1,7 @@
 package com.hospital.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.annotation.Version;
+import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.hospital.handler.SensitiveStringTypeHandler;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -50,13 +45,13 @@ public class User implements Serializable {
     /**
      * 手机号
      */
-    @TableField(value = "phone", typeHandler = SensitiveStringTypeHandler.class)
+    @TableField("phone")
     private String phone;
 
     /**
      * 邮箱
      */
-    @TableField(value = "email", typeHandler = SensitiveStringTypeHandler.class)
+    @TableField("email")
     private String email;
 
     /**
@@ -74,13 +69,13 @@ public class User implements Serializable {
     /**
      * 身份证号
      */
-    @TableField(value = "id_card", typeHandler = SensitiveStringTypeHandler.class)
+    @TableField("id_card")
     private String idCard;
 
     /**
      * 地址
      */
-    @TableField(value = "address", typeHandler = SensitiveStringTypeHandler.class)
+    @TableField("address")
     private String address;
 
     /**

@@ -38,7 +38,6 @@ public class SystemSettingNacosSyncService {
      */
     public void sync(Map<String, String> settings) {
         if (!syncProperties.isEnabled()) {
-            log.debug("已关闭系统配置 Nacos 同步，跳过发布");
             return;
         }
         if (CollectionUtils.isEmpty(settings)) {

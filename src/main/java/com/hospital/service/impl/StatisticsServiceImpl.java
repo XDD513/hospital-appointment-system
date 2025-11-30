@@ -1,10 +1,10 @@
 package com.hospital.service.impl;
 
-import com.hospital.util.CacheKeyBuilder;
-import com.hospital.util.CacheTtlPolicy;
 import com.hospital.dto.StatisticsDTO;
 import com.hospital.mapper.StatisticsMapper;
 import com.hospital.service.StatisticsService;
+import com.hospital.util.CacheKeyBuilder;
+import com.hospital.util.CacheTtlPolicy;
 import com.hospital.util.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -134,7 +134,6 @@ public class StatisticsServiceImpl implements StatisticsService {
             try {
                 @SuppressWarnings("unchecked")
                 List<StatisticsDTO.DepartmentStats> list = (List<StatisticsDTO.DepartmentStats>) cached;
-                log.info("从缓存获取科室统计数据");
                 return list;
             } catch (ClassCastException ignored) {}
         }
@@ -163,7 +162,6 @@ public class StatisticsServiceImpl implements StatisticsService {
             try {
                 @SuppressWarnings("unchecked")
                 List<StatisticsDTO.DoctorStats> list = (List<StatisticsDTO.DoctorStats>) cached;
-                log.info("从缓存获取医生统计数据");
                 return list;
             } catch (ClassCastException ignored) {}
         }
@@ -213,7 +211,6 @@ public class StatisticsServiceImpl implements StatisticsService {
             try {
                 @SuppressWarnings("unchecked")
                 List<StatisticsDTO.TrendData> list = (List<StatisticsDTO.TrendData>) cached;
-                log.info("从缓存获取预约趋势数据");
                 return list;
             } catch (ClassCastException ignored) {}
         }

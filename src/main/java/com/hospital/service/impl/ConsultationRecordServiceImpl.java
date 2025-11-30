@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hospital.common.constant.AppointmentStatus;
 import com.hospital.common.constant.SystemConstants;
 import com.hospital.dto.ConsultationRecordExportDTO;
+import com.hospital.dto.ConsultationReminderMessageDTO;
 import com.hospital.entity.Appointment;
 import com.hospital.entity.ConsultationRecord;
 import com.hospital.entity.Department;
@@ -17,7 +18,6 @@ import com.hospital.mapper.ConsultationRecordMapper;
 import com.hospital.mapper.DepartmentMapper;
 import com.hospital.mapper.DoctorMapper;
 import com.hospital.messaging.ConsultationReminderPublisher;
-import com.hospital.dto.ConsultationReminderMessageDTO;
 import com.hospital.service.ConsultationRecordService;
 import com.hospital.util.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -101,7 +101,6 @@ public class ConsultationRecordServiceImpl extends ServiceImpl<ConsultationRecor
                 try {
                     @SuppressWarnings("unchecked")
                     IPage<ConsultationRecord> cachedPage = (IPage<ConsultationRecord>) cached;
-                    log.info("从缓存获取接诊记录");
                     return cachedPage;
                 } catch (ClassCastException ignored) {}
             }

@@ -46,7 +46,6 @@ public class SearchServiceImpl implements SearchService {
                 }
             }
             
-            log.info("获取热门搜索词，共{}条", keywords.size());
             return keywords;
         } catch (Exception e) {
             log.error("获取热门搜索词失败", e);
@@ -69,7 +68,6 @@ public class SearchServiceImpl implements SearchService {
             // 设置过期时间（如果key不存在则设置，存在则不更新）
             redisUtil.expire(HOT_KEYWORDS_KEY, KEYWORD_EXPIRE_DAYS, TimeUnit.DAYS);
             
-            log.debug("记录搜索关键词: {}", trimmedKeyword);
         } catch (Exception e) {
             log.warn("记录搜索关键词失败: keyword={}, error={}", keyword, e.getMessage());
         }

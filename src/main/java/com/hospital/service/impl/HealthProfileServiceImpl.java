@@ -4,16 +4,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hospital.common.result.Result;
 import com.hospital.common.result.ResultCode;
-import com.hospital.entity.HealthCheckin;
-import com.hospital.entity.HealthPlanRecord;
-import com.hospital.entity.User;
-import com.hospital.entity.UserConstitutionTest;
-import com.hospital.entity.UserHealthProfile;
-import com.hospital.mapper.HealthCheckinMapper;
-import com.hospital.mapper.HealthPlanRecordMapper;
-import com.hospital.mapper.UserConstitutionTestMapper;
-import com.hospital.mapper.UserHealthProfileMapper;
-import com.hospital.mapper.UserMapper;
+import com.hospital.entity.*;
+import com.hospital.mapper.*;
 import com.hospital.service.HealthProfileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -66,7 +61,6 @@ public class HealthProfileServiceImpl implements HealthProfileService {
                 try {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> cachedProfile = (Map<String, Object>) cached;
-                    log.info("从缓存获取健康档案: userId={}", userId);
                     return Result.success(cachedProfile);
                 } catch (ClassCastException ignored) {}
             }
@@ -271,7 +265,6 @@ public class HealthProfileServiceImpl implements HealthProfileService {
         try {
             Page<HealthPlanRecord> page = new Page<>(pageNum, pageSize);
             IPage<HealthPlanRecord> result = healthPlanMapper.selectByUserId(page, userId, status);
-            log.info("查询用户健康计划：用户ID={}，状态={}，共{}条", userId, status, result.getTotal());
             return Result.success(result);
 
         } catch (Exception e) {
@@ -323,18 +316,16 @@ public class HealthProfileServiceImpl implements HealthProfileService {
                 // 手动分页
                 Page<HealthCheckin> page = new Page<>(pageNum, pageSize);
                 page.setTotal(checkins.size());
-                int start = (int) ((pageNum - 1) * pageSize);
+                int start = (pageNum - 1) * pageSize;
                 int end = Math.min(start + pageSize, checkins.size());
                 page.setRecords(start < checkins.size() ? checkins.subList(start, end) : new java.util.ArrayList<>());
 
-                log.info("查询用户打卡记录（日期范围）：用户ID={}，类型={}，日期范围={} ~ {}，共{}条",
-                        userId, checkinType, startDate, endDate, checkins.size());
+                // 查询用户打卡记录（日期范围）
                 return Result.success(page);
             } else {
                 // 使用原有的分页查询
                 Page<HealthCheckin> page = new Page<>(pageNum, pageSize);
                 IPage<HealthCheckin> result = healthCheckinMapper.selectByUserId(page, userId, checkinType);
-                log.info("查询用户打卡记录：用户ID={}，类型={}，共{}条", userId, checkinType, result.getTotal());
                 return Result.success(result);
             }
 

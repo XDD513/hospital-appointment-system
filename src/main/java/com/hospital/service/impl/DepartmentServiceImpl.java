@@ -8,14 +8,13 @@ import com.hospital.entity.Department;
 import com.hospital.entity.Doctor;
 import com.hospital.mapper.DepartmentMapper;
 import com.hospital.mapper.DoctorMapper;
-import com.hospital.util.RedisUtil;
 import com.hospital.service.DepartmentService;
+import com.hospital.util.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.concurrent.TimeUnit;
 import java.util.List;
 
 /**
@@ -55,13 +54,6 @@ public class DepartmentServiceImpl implements DepartmentService {
 
             // 查询中医分类列表
             List<Department> departments = departmentMapper.selectAllWithCategory();
-
-            // 🔍 调试日志：检查数据库查询结果
-            if (!departments.isEmpty()) {
-                Department first = departments.get(0);
-                log.info("🔍 调试 - 第一条记录: id={}, categoryName={}, createTime={}, updateTime={}",
-                    first.getId(), first.getCategoryName(), first.getCreateTime(), first.getUpdateTime());
-            }
 
             // 设置兼容字段
             departments.forEach(this::setCompatibilityFields);

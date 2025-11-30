@@ -6,23 +6,23 @@ import com.hospital.common.constant.SystemSettingKeys;
 import com.hospital.common.exception.BusinessException;
 import com.hospital.common.result.Result;
 import com.hospital.common.result.ResultCode;
+import com.hospital.config.OssConfig;
+import com.hospital.config.SystemSettingManager;
+import com.hospital.converter.DtoMapper;
 import com.hospital.dto.request.LoginRequest;
 import com.hospital.dto.request.RegisterRequest;
 import com.hospital.dto.request.UpdateUserInfoRequest;
 import com.hospital.dto.request.UserSettingsRequest;
-import com.hospital.dto.response.UserSettingsResponse;
 import com.hospital.dto.response.LoginResponse;
 import com.hospital.dto.response.UserInfoResponse;
+import com.hospital.dto.response.UserSettingsResponse;
 import com.hospital.entity.Doctor;
 import com.hospital.entity.User;
 import com.hospital.mapper.AppointmentMapper;
 import com.hospital.mapper.DoctorMapper;
-import com.hospital.mapper.DtoMapper;
 import com.hospital.mapper.UserMapper;
-import com.hospital.config.OssConfig;
 import com.hospital.service.OssService;
 import com.hospital.service.UserService;
-import com.hospital.config.SystemSettingManager;
 import com.hospital.util.JwtUtil;
 import com.hospital.util.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +32,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -65,19 +66,19 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
-    
+
     @Autowired
     private RedisUtil redisUtil;
-    
+
     @Autowired
     private OssConfig ossConfig;
-    
+
     @Autowired
     private OssService ossService;
 
     @Autowired
     private SystemSettingManager systemSettingManager;
-    
+
     // 用户存在性检查短缓存TTL（秒），可配置
     @Value("${hospital.cache.ttl.exists-seconds:60}")
     private long existsTtlSeconds;
@@ -151,7 +152,7 @@ public class UserServiceImpl implements UserService {
                 String oldTokenKey = "hospital:auth:token:" + oldToken;
                 // 删除旧token的会话信息
                 redisUtil.delete(oldTokenKey);
-                log.info("用户在其他设备登录，已使旧设备token失效: userId={}, oldToken={}", 
+                log.info("用户在其他设备登录，已使旧设备token失效: userId={}, oldToken={}",
                         user.getId(), oldToken.substring(0, Math.min(20, oldToken.length())) + "...");
             }
         } catch (Exception e) {
@@ -249,7 +250,7 @@ public class UserServiceImpl implements UserService {
         user.setIdCard(request.getIdCard());
         user.setGender(request.getGender() != null ? request.getGender() : 0);
         user.setBirthDate(request.getBirthDate());
-        user.setRoleType(1); // 默认为患者角色
+        user.setRoleType(0); // 默认为用户角色，预约后才会变为患者(1)
         user.setStatus(1); // 默认启用
         // 设置默认头像（可以根据性别设置不同默认头像）
         user.setAvatar(getDefaultAvatar(user.getGender()));
@@ -288,7 +289,7 @@ public class UserServiceImpl implements UserService {
             String idCard = response.getIdCard();
             response.setIdCard(idCard.substring(0, 6) + "********" + idCard.substring(idCard.length() - 4));
         }
-        
+
         // 如果是医生角色，查询doctorId
         if (user.getRoleType() == 2) {
             QueryWrapper<Doctor> wrapper = new QueryWrapper<>();
@@ -298,7 +299,7 @@ public class UserServiceImpl implements UserService {
                 response.setDoctorId(doctor.getId());
             }
         }
-        
+
         // 如果头像URL是OSS URL，生成签名URL
         if (response.getAvatar() != null && !response.getAvatar().isEmpty()) {
             try {
@@ -476,7 +477,7 @@ public class UserServiceImpl implements UserService {
 
     /**
      * 记录登录失败次数
-     * 
+     *
      * @param userId 用户ID
      * @param username 用户名
      * @return 是否达到最大失败次数（是否需要锁定账户）
@@ -497,7 +498,7 @@ public class UserServiceImpl implements UserService {
             log.warn("记录登录失败次数异常：userId={}, error={}", userId, e.getMessage());
             return false;
         }
-        
+
         // 检查是否达到最大失败次数
         if (attempts != null && attempts >= maxAttempts) {
             // 达到最大失败次数，锁定账户
@@ -515,7 +516,7 @@ public class UserServiceImpl implements UserService {
                 return false;
             }
         }
-        
+
         return false; // 未达到最大失败次数，返回false
     }
 
@@ -616,7 +617,7 @@ public class UserServiceImpl implements UserService {
             // 3. 更新密码
             user.setPassword(passwordEncoder.encode(request.getNewPassword()));
             int result = userMapper.updateById(user);
-            
+
             if (result > 0) {
                 log.info("用户密码修改成功: userId={}", userId);
                 // 清除用户相关的token缓存，强制重新登录
@@ -644,11 +645,11 @@ public class UserServiceImpl implements UserService {
         try {
             String cacheKey = "hospital:user:settings:userId:" + userId;
             Object cached = redisUtil.get(cacheKey);
-            
+
             if (cached instanceof UserSettingsResponse) {
                 return Result.success((UserSettingsResponse) cached);
             }
-            
+
             // 如果缓存中没有，返回默认设置
             UserSettingsResponse defaultSettings = new UserSettingsResponse();
             // 缓存默认设置（1小时）
@@ -669,14 +670,14 @@ public class UserServiceImpl implements UserService {
     public Result<Void> updateUserSettings(Long userId, UserSettingsRequest request) {
         try {
             String cacheKey = "hospital:user:settings:userId:" + userId;
-            
+
             // 获取现有设置或创建新设置
             UserSettingsResponse settings = new UserSettingsResponse();
             Object cached = redisUtil.get(cacheKey);
             if (cached instanceof UserSettingsResponse) {
                 settings = (UserSettingsResponse) cached;
             }
-            
+
             // 更新设置（只更新非空字段）
             if (request.getNotification() != null) {
                 settings.setNotification(request.getNotification());
@@ -693,10 +694,10 @@ public class UserServiceImpl implements UserService {
             if (request.getOperationReminder() != null) {
                 settings.setOperationReminder(request.getOperationReminder());
             }
-            
+
             // 保存到Redis（永不过期，用户设置应该持久化）
             redisUtil.set(cacheKey, settings);
-            
+
             log.info("用户设置更新成功: userId={}", userId);
             return Result.success("设置保存成功");
         } catch (Exception e) {
@@ -713,18 +714,18 @@ public class UserServiceImpl implements UserService {
         try {
             String cacheKey = "hospital:patient:appointment:stats:patient:" + patientId;
             Object cached = redisUtil.get(cacheKey);
-            
+
             if (cached instanceof com.hospital.dto.response.PatientAppointmentStatsResponse) {
                 return Result.success((com.hospital.dto.response.PatientAppointmentStatsResponse) cached);
             }
-            
+
             com.hospital.dto.response.PatientAppointmentStatsResponse stats = new com.hospital.dto.response.PatientAppointmentStatsResponse();
             stats.setTotalAppointments(appointmentMapper.countByPatientId(patientId));
             stats.setPendingAppointments(appointmentMapper.countPendingByPatientId(patientId));
-            
+
             // 缓存5分钟
             redisUtil.set(cacheKey, stats, 5, TimeUnit.MINUTES);
-            
+
             return Result.success(stats);
         } catch (Exception e) {
             log.error("获取患者预约统计失败: patientId={}", patientId, e);
@@ -734,16 +735,16 @@ public class UserServiceImpl implements UserService {
 
     /**
      * 获取默认头像URL
-     * 
+     *
      * @param gender 性别（0-未知 1-男 2-女）
      * @return 默认头像URL
      */
     private String getDefaultAvatar(Integer gender) {
         // 可以根据性别返回不同的默认头像
         // 这里使用一个通用的默认头像，实际项目中可以上传默认头像到OSS
-        String baseUrl = ossConfig.getUrlProtocol() + "://" + 
-                         ossConfig.getBucketName() + "." + 
-                         ossConfig.getEndpoint() + "/" + 
+        String baseUrl = ossConfig.getUrlProtocol() + "://" +
+                         ossConfig.getBucketName() + "." +
+                         ossConfig.getEndpoint() + "/" +
                          ossConfig.getAvatarPath();
         if (gender == null || gender == 0) {
             return baseUrl + "default-avatar.png";

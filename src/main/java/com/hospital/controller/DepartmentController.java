@@ -102,20 +102,6 @@ public class DepartmentController {
         return departmentService.updateDepartmentStatus(id, status);
     }
 
-    /**
-     * 🔍 测试接口：直接查询数据库，绕过缓存
-     */
-    @GetMapping("/test/direct/{id}")
-    public Result<Department> testGetDepartmentDirect(@PathVariable Long id) {
-        log.info("🔍 测试 - 直接查询数据库: id={}", id);
-        Department dept = departmentMapper.selectById(id);
-        if (dept == null) {
-            return Result.error("科室不存在");
-        }
-        log.info("🔍 测试 - 查询结果: id={}, categoryName={}, createTime={}, updateTime={}",
-            dept.getId(), dept.getCategoryName(), dept.getCreateTime(), dept.getUpdateTime());
-        return Result.success(dept);
-    }
 
 
 }

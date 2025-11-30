@@ -43,7 +43,6 @@ public class ArticleCommentServiceImpl implements ArticleCommentService {
             Page<ArticleComment> page = new Page<>(pageNum, pageSize);
             // 查询顶级评论（parentId = 0）
             IPage<ArticleComment> result = commentMapper.selectCommentPage(page, articleId, 0L);
-            log.info("查询文章评论：文章ID={}，共{}条", articleId, result.getTotal());
             return Result.success(result);
 
         } catch (Exception e) {

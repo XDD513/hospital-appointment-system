@@ -1,61 +1,6 @@
-# 开发环境配置
-spring:
-  # 数据源配置
-  datasource:
-    type: com.alibaba.druid.pool.DruidDataSource
-    druid:
-      driver-class-name: com.mysql.cj.jdbc.Driver
-      url: jdbc:mysql://localhost:3306/hospital_appointment_system?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-      username: root
-      password: root
-      # 连接池配置
-      initial-size: 5
-      min-idle: 5
-      max-active: 20
-      max-wait: 60000
-      time-between-eviction-runs-millis: 60000
-      min-evictable-idle-time-millis: 300000
-      validation-query: SELECT 1
-      test-while-idle: true
-      test-on-borrow: false
-      test-on-return: false
-      # 监控配置
-      stat-view-servlet:
-        enabled: true
-        url-pattern: /druid/*
-        login-username: admin
-        login-password: admin123
-      filter:
-        stat:
-          enabled: true
-          log-slow-sql: true
-          slow-sql-millis: 1000
-
-  # Redis配置
-  redis:
-    host: localhost
-    port: 6379
-    password: 
-    database: 0
-    timeout: 5000
-    lettuce:
-      pool:
-        max-active: 8
-        max-wait: -1
-        max-idle: 8
-        min-idle: 0
-
-  # Jackson配置
-  jackson:
-    date-format: yyyy-MM-dd HH:mm:ss
-    time-zone: GMT+8
-    default-property-inclusion: non_null
-
-# 日志配置
 logging:
   level:
-    com.hospital: debug
-    com.hospital.mapper: debug
+    com.hospital: info
+    com.hospital.mapper: info
   pattern:
     console: '%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{50} - %msg%n'
-

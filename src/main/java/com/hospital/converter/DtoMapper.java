@@ -1,14 +1,14 @@
-package com.hospital.mapper;
+package com.hospital.converter;
 
 import com.hospital.dto.StatisticsDTO;
 import com.hospital.dto.response.LoginResponse;
 import com.hospital.dto.response.UserInfoResponse;
 import com.hospital.entity.Appointment;
 import com.hospital.entity.User;
+import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
-import org.mapstruct.AfterMapping;
 import org.mapstruct.factory.Mappers;
 import org.springframework.util.StringUtils;
 
@@ -74,4 +74,9 @@ public interface DtoMapper {
      */
     List<StatisticsDTO.RecentAppointment> toRecentAppointmentList(List<Appointment> appointments);
 }
+
+
+
+
+
 

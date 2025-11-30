@@ -15,11 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * 穴位服务实现类
@@ -65,7 +62,6 @@ public class AcupointServiceImpl implements AcupointService {
                     try {
                         @SuppressWarnings("unchecked")
                         IPage<Acupoint> cachedPage = (IPage<Acupoint>) cached;
-                        log.info("从缓存获取穴位列表");
                         return Result.success(cachedPage);
                     } catch (ClassCastException ignored) {}
                 }
@@ -79,7 +75,6 @@ public class AcupointServiceImpl implements AcupointService {
                 redisUtil.set(cacheKey, result, 30, java.util.concurrent.TimeUnit.MINUTES);
             }
 
-            log.info("查询穴位列表：经络={}，体质={}，共{}条", meridian, constitutionType, result.getTotal());
             return Result.success(result);
 
         } catch (Exception e) {
@@ -101,7 +96,6 @@ public class AcupointServiceImpl implements AcupointService {
             Acupoint acupoint = null;
             if (cached instanceof Acupoint) {
                 acupoint = (Acupoint) cached;
-                log.info("从缓存获取穴位详情: {}", id);
             } else {
                 acupoint = acupointMapper.selectById(id);
                 if (acupoint == null) {
@@ -142,7 +136,6 @@ public class AcupointServiceImpl implements AcupointService {
                     try {
                         @SuppressWarnings("unchecked")
                         IPage<Acupoint> cachedPage = (IPage<Acupoint>) cached;
-                        log.info("从缓存获取穴位搜索结果");
                         return Result.success(cachedPage);
                     } catch (ClassCastException ignored) {}
                 }
@@ -179,7 +172,6 @@ public class AcupointServiceImpl implements AcupointService {
                 try {
                     @SuppressWarnings("unchecked")
                     List<Acupoint> list = (List<Acupoint>) cached;
-                    log.info("从缓存获取经络穴位");
                     return Result.success(list);
                 } catch (ClassCastException ignored) {}
             }
@@ -189,7 +181,6 @@ public class AcupointServiceImpl implements AcupointService {
             // 存入缓存（30分钟）
             redisUtil.set(cacheKey, acupoints, 30, java.util.concurrent.TimeUnit.MINUTES);
 
-            log.info("查询经络穴位：经络={}，共{}个", meridian, acupoints.size());
             return Result.success(acupoints);
 
         } catch (Exception e) {
@@ -212,7 +203,6 @@ public class AcupointServiceImpl implements AcupointService {
                 try {
                     @SuppressWarnings("unchecked")
                     List<String> list = (List<String>) cached;
-                    log.info("从缓存获取经络列表");
                     return Result.success(list);
                 } catch (ClassCastException ignored) {}
             }
@@ -222,7 +212,6 @@ public class AcupointServiceImpl implements AcupointService {
             // 存入缓存（永久）
             redisUtil.set(cacheKey, meridians);
 
-            log.info("查询所有经络：共{}条", meridians.size());
             return Result.success(meridians);
 
         } catch (Exception e) {
@@ -245,7 +234,6 @@ public class AcupointServiceImpl implements AcupointService {
                 try {
                     @SuppressWarnings("unchecked")
                     List<Acupoint> list = (List<Acupoint>) cached;
-                    log.info("从缓存获取热门穴位");
                     return Result.success(list);
                 } catch (ClassCastException ignored) {}
             }
@@ -255,7 +243,6 @@ public class AcupointServiceImpl implements AcupointService {
             // 存入缓存（30分钟）
             redisUtil.set(cacheKey, acupoints, 30, java.util.concurrent.TimeUnit.MINUTES);
 
-            log.info("查询热门穴位：共{}个", acupoints.size());
             return Result.success(acupoints);
 
         } catch (Exception e) {
@@ -286,7 +273,6 @@ public class AcupointServiceImpl implements AcupointService {
                     try {
                         @SuppressWarnings("unchecked")
                         IPage<AcupointCombination> cachedPage = (IPage<AcupointCombination>) cached;
-                        log.info("从缓存获取穴位组合列表");
                         return Result.success(cachedPage);
                     } catch (ClassCastException ignored) {}
                 }
@@ -300,7 +286,6 @@ public class AcupointServiceImpl implements AcupointService {
                 redisUtil.set(cacheKey, result, 30, java.util.concurrent.TimeUnit.MINUTES);
             }
 
-            log.info("查询穴位组合列表：体质={}，症状={}，共{}条", constitutionType, symptom, result.getTotal());
             return Result.success(result);
 
         } catch (Exception e) {
@@ -379,7 +364,6 @@ public class AcupointServiceImpl implements AcupointService {
     public Result<List<AcupointCombination>> getCombinationsBySymptom(String symptom) {
         try {
             List<AcupointCombination> combinations = acupointCombinationMapper.selectBySymptom(symptom);
-            log.info("查询症状穴位组合：症状={}，共{}个", symptom, combinations.size());
             return Result.success(combinations);
 
         } catch (Exception e) {
@@ -395,7 +379,6 @@ public class AcupointServiceImpl implements AcupointService {
     public Result<List<AcupointCombination>> getPopularCombinations(Integer limit) {
         try {
             List<AcupointCombination> combinations = acupointCombinationMapper.selectPopularCombinations(limit);
-            log.info("查询热门穴位组合：共{}个", combinations.size());
             return Result.success(combinations);
 
         } catch (Exception e) {

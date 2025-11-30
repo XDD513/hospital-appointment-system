@@ -1,6 +1,5 @@
 package com.hospital.service.impl;
 
-import cn.hutool.core.util.IdUtil;
 import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -48,16 +47,16 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
 
     @Autowired
     private ScheduleService scheduleService;
-    
+
     @Autowired
     private com.hospital.mapper.ScheduleMapper scheduleMapper;
-    
+
     @Autowired
     private DoctorMapper doctorMapper;
-    
+
     @Autowired
     private DepartmentMapper departmentMapper;
-    
+
     @Autowired
     private UserMapper userMapper;
 
@@ -108,12 +107,12 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
             appointment.setPatientName(patient.getRealName());
             appointment.setPatientPhone(patient.getPhone());
             appointment.setPatientIdCard(patient.getIdCard());
-            
+
             // 2. 校验排班并设置 scheduleId / deptId，同时生成排队号
             // 根据医生、日期、时段查找排班
             com.hospital.entity.Schedule schedule = scheduleMapper.selectByDoctorDateSlot(
-                appointment.getDoctorId(), 
-                appointment.getAppointmentDate(), 
+                appointment.getDoctorId(),
+                appointment.getAppointmentDate(),
                 appointment.getTimeSlot()
             );
             if (schedule == null) {
@@ -139,6 +138,15 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
                     if (doctor.getDeptId() != null) {
                         appointment.setDeptId(doctor.getDeptId());
                     }
+                    // 设置预约金额：如果前端传递了就用前端的，否则使用医生的咨询费
+                    if (appointment.getConsultationFee() == null || appointment.getConsultationFee().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                        if (doctor.getConsultationFee() != null) {
+                            appointment.setConsultationFee(doctor.getConsultationFee());
+                        } else {
+                            // 如果医生也没有设置咨询费，默认设为0
+                            appointment.setConsultationFee(java.math.BigDecimal.ZERO);
+                        }
+                    }
                 }
             } catch (Exception e) {
                 log.error("查询医生信息失败: doctorId={}, error={}", appointment.getDoctorId(), e.getMessage());
@@ -147,12 +155,12 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
 
             // 生成排队号（根据当天同医生同时段的预约数量）
             Integer queueNumber = generateQueueNumber(
-                appointment.getDoctorId(), 
-                appointment.getAppointmentDate(), 
+                appointment.getDoctorId(),
+                appointment.getAppointmentDate(),
                 appointment.getTimeSlot()
             );
             appointment.setQueueNumber(queueNumber);
-            
+
             // 3. 设置初始状态（已确认）
             appointment.setStatus(AppointmentStatus.CONFIRMED.getCode());
 
@@ -160,7 +168,14 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
             scheduleService.decreaseQuota(schedule.getId());
             appointmentMapper.insert(appointment);
 
-            log.info("创建预约成功: appointmentId={}, patientName={}, queueNumber={}", 
+            // 4.5. 如果用户roleType为0（普通用户），预约成功后将其更新为1（患者）
+            if (patient.getRoleType() != null && patient.getRoleType() == 0) {
+                patient.setRoleType(1);
+                userMapper.updateById(patient);
+                log.info("用户roleType已更新: userId={}, roleType: 0 -> 1", patient.getId());
+            }
+
+            log.info("创建预约成功: appointmentId={}, patientName={}, queueNumber={}",
                     appointment.getId(), appointment.getPatientName(), queueNumber);
 
             // 5. 发送预约确认通知给患者
@@ -168,12 +183,12 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
                 Doctor doctor = doctorMapper.selectById(appointment.getDoctorId());
                 String doctorName = doctor != null ? doctor.getDoctorName() : "医生";
                 String title = "预约确认";
-                String content = String.format("您已成功预约%s的%s时段，排队号：%d，请按时就诊。", 
+                String content = String.format("您已成功预约%s的%s时段，排队号：%d，请按时就诊。",
                         doctorName, appointment.getTimeSlot(), queueNumber);
                 notificationService.createAndSendNotification(
-                        appointment.getPatientId(), 
-                        title, 
-                        content, 
+                        appointment.getPatientId(),
+                        title,
+                        content,
                         "APPOINTMENT_CONFIRMED"
                 );
             } catch (Exception e) {
@@ -185,13 +200,13 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
                 com.hospital.entity.Doctor doctor = doctorMapper.selectById(appointment.getDoctorId());
                 if (doctor != null && doctor.getUserId() != null) {
                     String patientName = appointment.getPatientName() != null ? appointment.getPatientName() : "患者";
-                    String appointmentDateStr = appointment.getAppointmentDate() != null ? 
+                    String appointmentDateStr = appointment.getAppointmentDate() != null ?
                             appointment.getAppointmentDate().toString() : "";
-                    String timeSlotStr = appointment.getTimeSlot() != null ? 
-                            (appointment.getTimeSlot().equals("MORNING") ? "上午" : 
-                             appointment.getTimeSlot().equals("AFTERNOON") ? "下午" : 
+                    String timeSlotStr = appointment.getTimeSlot() != null ?
+                            (appointment.getTimeSlot().equals("MORNING") ? "上午" :
+                             appointment.getTimeSlot().equals("AFTERNOON") ? "下午" :
                              appointment.getTimeSlot().equals("EVENING") ? "晚间" : appointment.getTimeSlot()) : "";
-                    String content = String.format("患者%s已成功预约您的%s%s时段，排队号：%d号", 
+                    String content = String.format("患者%s已成功预约您的%s%s时段，排队号：%d号",
                             patientName, appointmentDateStr, timeSlotStr, queueNumber);
                     notificationService.createAndSendNotification(
                             doctor.getUserId(),
@@ -224,13 +239,13 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
                 log.warn("创建预约后失效缓存失败: appointmentId={}, error={}", appointment.getId(), e1.getMessage());
             }
             return Result.success(appointment);
-            
+
         } catch (Exception e) {
             log.error("创建预约失败", e);
             return Result.error(ResultCode.DB_INSERT_ERROR.getCode(), "创建预约失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 生成排队号
      * 根据当天同一医生同一时段的预约数量生成
@@ -301,12 +316,12 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
             Doctor doctor = doctorMapper.selectById(appointment.getDoctorId());
             String doctorName = doctor != null ? doctor.getDoctorName() : "医生";
             String title = "预约已取消";
-            String content = String.format("您已取消%s的%s时段预约，如有需要请重新预约。", 
+            String content = String.format("您已取消%s的%s时段预约，如有需要请重新预约。",
                     doctorName, appointment.getTimeSlot());
             notificationService.createAndSendNotification(
-                    appointment.getPatientId(), 
-                    title, 
-                    content, 
+                    appointment.getPatientId(),
+                    title,
+                    content,
                     "APPOINTMENT_CANCELLED"
             );
         } catch (Exception e) {
@@ -437,7 +452,7 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
 
     /**
      * 丰富预约信息（关联查询医生、科室、患者信息）
-     * 
+     *
      * @param appointment 预约对象
      */
     public void enrichAppointmentInfo(Appointment appointment) {
@@ -452,7 +467,11 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
                 if (doctor != null) {
                     appointment.setDoctorName(doctor.getDoctorName());
                     appointment.setDoctorTitle(doctor.getTitle());
-                    appointment.setConsultationFee(doctor.getConsultationFee());
+                    // 如果预约金额为空，才使用医生的咨询费（用于展示）
+                    // 注意：数据库中已经存储了预约时的金额，这里不要覆盖
+                    if (appointment.getConsultationFee() == null || appointment.getConsultationFee().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                        appointment.setConsultationFee(doctor.getConsultationFee());
+                    }
                 }
             } catch (Exception e) {
                 log.warn("获取医生信息失败: doctorId={}", appointment.getDoctorId(), e);
@@ -487,7 +506,7 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
 
     /**
      * 丰富预约列表信息（批量处理）
-     * 
+     *
      * @param appointments 预约列表
      */
     public void enrichAppointmentList(List<Appointment> appointments) {
@@ -525,7 +544,7 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
 
     /**
      * 丰富预约分页信息
-     * 
+     *
      * @param appointmentPage 预约分页对象
      */
     public void enrichAppointmentPage(IPage<Appointment> appointmentPage) {

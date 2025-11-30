@@ -14,8 +14,10 @@
         <result property="remainingQuota" column="remaining_quota"/>
         <result property="bookedQuota" column="booked_quota"/>
         <result property="status" column="status"/>
-        <result property="createdAt" column="created_at"/>
-        <result property="updatedAt" column="updated_at"/>
+        <result property="note" column="note"/>
+        <result property="createTime" column="created_at"/>
+        <result property="updateTime" column="updated_at"/>
+        <result property="version" column="version"/>
     </resultMap>
 
     <!-- 根据医生ID和日期查询排班 -->
