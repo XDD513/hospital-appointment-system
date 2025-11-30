@@ -108,4 +108,38 @@
         WHERE d.id = #{doctorId}
     </update>
     
+    <!-- 根据预约ID查询评价 -->
+    <select id="selectByAppointmentId" resultType="com.hospital.entity.Review">
+        SELECT
+            r.id,
+            r.appointment_id,
+            r.consultation_record_id,
+            r.patient_id,
+            r.doctor_id,
+            r.category_id,
+            r.rating,
+            r.service_rating,
+            r.professional_rating,
+            r.environment_rating,
+            r.content,
+            r.is_anonymous,
+            r.tags,
+            r.images,
+            r.doctor_reply,
+            r.doctor_reply_time,
+            r.status,
+            r.created_at,
+            r.updated_at,
+            CASE WHEN r.is_anonymous = 1 THEN '匿名用户' ELSE u.real_name END as patientName,
+            CASE WHEN r.is_anonymous = 1 THEN NULL ELSE u.avatar END as patientAvatar,
+            d.doctor_name as doctorName,
+            c.category_name as categoryName
+        FROM review r
+        LEFT JOIN user u ON r.patient_id = u.id
+        LEFT JOIN tcm_doctor d ON r.doctor_id = d.id
+        LEFT JOIN tcm_category c ON r.category_id = c.id
+        WHERE r.appointment_id = #{appointmentId}
+        LIMIT 1
+    </select>
+    
 </mapper>

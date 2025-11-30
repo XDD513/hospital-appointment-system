@@ -18,8 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -29,27 +27,27 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> implements ReviewService {
-    
+
     @Autowired
     private ReviewMapper reviewMapper;
-    
+
     @Autowired
     private RedisUtil redisUtil;
-    
+
     @Autowired
     private OssService ossService;
-    
+
     @Autowired
     private AvatarConfig avatarConfig;
-    
+
     @Override
     public IPage<Review> getDoctorReviews(Long doctorId, Map<String, Object> params) {
         log.info("获取医生评价列表，医生ID：{}，参数：{}", doctorId, params);
-        
+
         // 安全地解析分页参数
         Integer page = 1;
         Integer pageSize = SystemConstants.DEFAULT_PAGE_SIZE;
-        
+
         try {
             if (params.get("page") != null) {
                 page = Integer.parseInt(params.get("page").toString());
@@ -57,7 +55,7 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
         } catch (NumberFormatException e) {
             log.warn("无效的页码参数：{}", params.get("page"));
         }
-        
+
         try {
             if (params.get("pageSize") != null) {
                 pageSize = Integer.parseInt(params.get("pageSize").toString());
@@ -65,10 +63,10 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
         } catch (NumberFormatException e) {
             log.warn("无效的页面大小参数：{}", params.get("pageSize"));
         }
-        
+
         Page<Review> pageObject = new Page<>(page, pageSize);
         params.put("doctorId", doctorId);
-        
+
         // 热门区间：仅缓存前3页，使用参数哈希简化层级
         Map<String, Object> filterParams = new java.util.HashMap<>();
         if (params.containsKey("status") && !"ALL".equals(String.valueOf(params.get("status")))) {
@@ -92,7 +90,7 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
         }
 
         IPage<Review> result = reviewMapper.selectDoctorReviews(pageObject, params);
-        
+
         // 处理患者头像URL
         if (result != null && result.getRecords() != null) {
             for (Review review : result.getRecords()) {
@@ -101,13 +99,13 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
                 }
             }
         }
-        
+
         if (page <= 3) {
             redisUtil.set(cacheKey, result, CacheConstants.DOCTOR_REVIEWS_HOT_TTL_SECONDS, TimeUnit.SECONDS);
         }
         return result;
     }
-    
+
     @Override
     public Review getReviewById(Long id) {
         log.info("获取评价详情，评价ID：{}", id);
@@ -123,19 +121,19 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
         }
         return review;
     }
-    
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean createReview(Review review) {
         log.info("创建评价，预约ID：{}", review.getAppointmentId());
-        
+
         // 设置评价状态为已发布（患者提交后直接发布）
         if (review.getStatus() == null || review.getStatus().isEmpty()) {
             review.setStatus("PUBLISHED");
         }
-        
+
         boolean result = save(review);
-        
+
         if (result) {
             // 更新医生评分统计
             reviewMapper.updateDoctorRating(review.getDoctorId());
@@ -144,15 +142,15 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
             redisUtil.deleteByPattern(String.format("hospital:common:review:v2:list:doctor:%d:*", review.getDoctorId()));
             redisUtil.deleteByPattern("hospital:admin:review:list:*");
         }
-        
+
         return result;
     }
-    
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean replyReview(Long reviewId, String reply) {
         log.info("回复评价，评价ID：{}，回复内容：{}", reviewId, reply);
-        
+
         // 先查询以获取医生ID，用于失效对应缓存
         Review existed = getById(reviewId);
 
@@ -160,7 +158,7 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
         review.setId(reviewId);
         review.setDoctorReply(reply);
         review.setDoctorReplyTime(LocalDateTime.now());
-        
+
         boolean updated = updateById(review);
 
         if (updated) {
@@ -173,18 +171,18 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
             }
             redisUtil.deleteByPattern("hospital:admin:review:list:*");
         }
-        
+
         return updated;
     }
-    
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteReview(Long id) {
         log.info("删除评价，评价ID：{}", id);
-        
+
         Review review = getById(id);
         boolean result = removeById(id);
-        
+
         if (result && review != null) {
             // 更新医生评分统计
             reviewMapper.updateDoctorRating(review.getDoctorId());
@@ -196,14 +194,14 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
             redisUtil.deleteByPattern(String.format("hospital:common:review:v2:list:doctor:%d:*", review.getDoctorId()));
             redisUtil.deleteByPattern("hospital:admin:review:list:*");
         }
-        
+
         return result;
     }
-    
+
     @Override
     public IPage<Review> getAllReviews(Map<String, Object> params) {
         log.info("获取所有评价列表，参数：{}", params);
-        
+
         Integer page = (Integer) params.get("page");
         Integer pageSize = (Integer) params.get("pageSize");
 
@@ -232,7 +230,7 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
         }
 
         IPage<Review> result = reviewMapper.selectAllReviews(pageObject, params);
-        
+
         // 处理患者头像URL
         if (result != null && result.getRecords() != null) {
             for (Review review : result.getRecords()) {
@@ -241,13 +239,33 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
                 }
             }
         }
-        
+
         if (p <= 2) {
             redisUtil.set(cacheKey, result, CacheConstants.ADMIN_REVIEWS_TTL_SECONDS, TimeUnit.SECONDS);
         }
         return result;
     }
-    
+
+    @Override
+    public Review getReviewByAppointmentId(Long appointmentId) {
+        log.info("根据预约ID获取评价，预约ID：{}", appointmentId);
+        String cacheKey = String.format("hospital:common:review:v2:detail:appointment:%d", appointmentId);
+        Object cached = redisUtil.get(cacheKey);
+        if (cached != null) {
+            return (Review) cached;
+        }
+
+        Review review = reviewMapper.selectByAppointmentId(appointmentId);
+        if (review != null) {
+            // 处理患者头像URL
+            if (review.getPatientId() != null) {
+                review.setPatientAvatar(resolveAvatarUrl(review.getPatientAvatar(), review.getPatientId(), "patient"));
+            }
+            redisUtil.set(cacheKey, review, CacheConstants.REVIEW_DETAIL_TTL_SECONDS, TimeUnit.SECONDS);
+        }
+        return review;
+    }
+
     /**
      * 清理头像URL（移除查询参数等）
      */
@@ -266,7 +284,7 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
         }
         return sanitized;
     }
-    
+
     /**
      * 生成可直接访问的头像URL
      */
@@ -279,7 +297,7 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
             if (cached != null && cached instanceof String) {
                 return (String) cached;
             }
-            
+
             try {
                 String signedUrl = ossService.generatePresignedUrl(sanitizedAvatar, avatarConfig.getTtlMinutes());
                 if (StringUtils.hasText(signedUrl)) {

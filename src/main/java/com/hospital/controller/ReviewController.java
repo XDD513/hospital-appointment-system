@@ -75,4 +75,13 @@ public class ReviewController {
         IPage<Review> reviews = reviewService.getAllReviews(params);
         return Result.success(reviews);
     }
+
+    /**
+     * 根据预约ID获取评价
+     */
+    @GetMapping("/appointment/{appointmentId}")
+    public Result<Review> getReviewByAppointmentId(@PathVariable Long appointmentId) {
+        Review review = reviewService.getReviewByAppointmentId(appointmentId);
+        return Result.success(review);
+    }
 }
