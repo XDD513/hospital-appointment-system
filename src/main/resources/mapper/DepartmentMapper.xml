@@ -29,6 +29,7 @@
             location,
             icon,
             status,
+            is_recommended,
             sort_order,
             created_at,
             updated_at
@@ -48,6 +49,7 @@
             location,
             icon,
             status,
+            is_recommended,
             sort_order,
             created_at,
             updated_at
@@ -67,6 +69,7 @@
             location,
             icon,
             status,
+            is_recommended,
             sort_order,
             created_at,
             updated_at
