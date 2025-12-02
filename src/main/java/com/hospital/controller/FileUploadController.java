@@ -5,7 +5,10 @@ import com.hospital.common.result.Result;
 import com.hospital.service.OssService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -62,6 +65,51 @@ public class FileUploadController {
 
         } catch (Exception e) {
             log.error("头像上传失败: {}", e.getMessage(), e);
+            return Result.error(500, "上传失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 上传图标（用于科室、分类等）
+     */
+    @OperationLog(module = "FILE", type = "INSERT", description = "上传图标")
+    @PostMapping("/icon")
+    public Result<String> uploadIcon(@RequestParam("file") MultipartFile file) {
+        try {
+            // 验证文件
+            if (file == null || file.isEmpty()) {
+                return Result.error(400, "文件不能为空");
+            }
+
+            // 验证文件类型
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename == null) {
+                return Result.error(400, "文件名不能为空");
+            }
+
+            String extension = "";
+            int lastDotIndex = originalFilename.lastIndexOf(".");
+            if (lastDotIndex > 0) {
+                extension = originalFilename.substring(lastDotIndex).toLowerCase();
+            }
+
+            // 只允许图片格式
+            if (!extension.matches("\\.(jpg|jpeg|png|gif|bmp|webp|svg)")) {
+                return Result.error(400, "只支持图片格式：jpg、jpeg、png、gif、bmp、webp、svg");
+            }
+
+            // 验证文件大小（限制5MB）
+            if (file.getSize() > 5 * 1024 * 1024) {
+                return Result.error(400, "文件大小不能超过5MB");
+            }
+
+            // 上传到OSS
+            String fileUrl = ossService.uploadFile(file, "icon/");
+            log.info("图标上传成功: url={}", fileUrl);
+            return Result.success("上传成功", fileUrl);
+
+        } catch (Exception e) {
+            log.error("图标上传失败: {}", e.getMessage(), e);
             return Result.error(500, "上传失败: " + e.getMessage());
         }
     }
