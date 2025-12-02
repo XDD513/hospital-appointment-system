@@ -34,6 +34,14 @@ public interface HealthProfileService {
     Result<UserHealthProfile> updateHealthProfile(UserHealthProfile profile);
 
     /**
+     * 删除用户健康档案
+     *
+     * @param userId 用户ID
+     * @return 删除结果
+     */
+    Result<Void> deleteHealthProfile(Long userId);
+
+    /**
      * 创建健康计划
      *
      * @param plan 健康计划信息

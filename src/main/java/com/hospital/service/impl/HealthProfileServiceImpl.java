@@ -82,6 +82,7 @@ public class HealthProfileServiceImpl implements HealthProfileService {
 
             // 4. 组装返回数据
             Map<String, Object> result = new HashMap<>();
+            result.put("id", profile.getId()); // 健康档案ID
             result.put("userId", userId);
             result.put("userName", user != null ? user.getRealName() : null);
             result.put("gender", user != null ? user.getGender() : null);
@@ -166,6 +167,33 @@ public class HealthProfileServiceImpl implements HealthProfileService {
 
         } catch (Exception e) {
             log.error("更新用户健康档案失败", e);
+            return Result.error(ResultCode.SYSTEM_ERROR);
+        }
+    }
+
+    /**
+     * 删除用户健康档案
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Result<Void> deleteHealthProfile(Long userId) {
+        try {
+            UserHealthProfile existingProfile = healthProfileMapper.selectByUserId(userId);
+            if (existingProfile == null) {
+                return Result.error(ResultCode.DATA_NOT_FOUND.getCode(), "健康档案不存在");
+            }
+
+            // 删除健康档案
+            healthProfileMapper.deleteByUserId(userId);
+
+            // 失效缓存
+            redisUtil.delete("hospital:patient:health:profile:user:" + userId);
+
+            log.info("删除用户健康档案成功：用户ID={}", userId);
+            return Result.success();
+
+        } catch (Exception e) {
+            log.error("删除用户健康档案失败", e);
             return Result.error(ResultCode.SYSTEM_ERROR);
         }
     }

@@ -53,6 +53,18 @@ public class HealthProfileController {
     }
 
     /**
+     * 删除用户健康档案
+     *
+     * @param userId 用户ID
+     * @return 删除结果
+     */
+    @DeleteMapping("/profile")
+    public Result<Void> deleteHealthProfile(@RequestParam Long userId) {
+        log.info("删除用户健康档案：用户ID={}", userId);
+        return healthProfileService.deleteHealthProfile(userId);
+    }
+
+    /**
      * 创建健康计划
      *
      * @param plan 健康计划信息
