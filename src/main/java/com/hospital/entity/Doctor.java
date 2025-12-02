@@ -1,10 +1,6 @@
 package com.hospital.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.annotation.Version;
+import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
@@ -154,6 +150,12 @@ public class Doctor implements Serializable {
      * 状态（0-禁用 1-启用）
      */
     private Integer status;
+
+    /**
+     * 是否推荐到首页（0-否 1-是）
+     */
+    @TableField("is_recommended")
+    private Integer isRecommended;
 
     /**
      * 创建时间

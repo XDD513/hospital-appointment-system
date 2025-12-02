@@ -108,6 +108,18 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
             appointment.setPatientPhone(patient.getPhone());
             appointment.setPatientIdCard(patient.getIdCard());
 
+            // 1.5. 检查患者是否已有该医生的未完成预约
+            if (appointment.getPatientId() != null && appointment.getDoctorId() != null) {
+                Integer unfinishedCount = appointmentMapper.countUnfinishedByPatientAndDoctor(
+                    appointment.getPatientId(),
+                    appointment.getDoctorId()
+                );
+                if (unfinishedCount != null && unfinishedCount > 0) {
+                    return Result.error(ResultCode.PATIENT_HAS_UNFINISHED_APPOINTMENTS.getCode(),
+                        "该医生已预约过了");
+                }
+            }
+
             // 2. 校验排班并设置 scheduleId / deptId，同时生成排队号
             // 根据医生、日期、时段查找排班
             com.hospital.entity.Schedule schedule = scheduleMapper.selectByDoctorDateSlot(
@@ -219,11 +231,22 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
                 log.warn("发送预约成功通知失败: appointmentId={}, error={}", appointment.getId(), e.getMessage());
             }
 
-            // 7. 仅当预约日期为今日时，失效医生当日患者列表与今日统计缓存（创建预约后需即时刷新）
+            // 7. 失效相关缓存（创建预约后需即时刷新）
             try {
-                if (appointment.getAppointmentDate() != null && appointment.getAppointmentDate().equals(LocalDate.now())) {
-                    Long doctorId = appointment.getDoctorId();
-                    if (doctorId != null) {
+                Long doctorId = appointment.getDoctorId();
+
+                if (doctorId != null && appointmentDate != null) {
+                    // 失效排班缓存（日期和月份）
+                    String dateKey = "hospital:common:schedule:doctor:" + doctorId + ":date:" + appointmentDate;
+                    redisUtil.delete(dateKey);
+
+                    // 失效该月的排班缓存
+                    String month = appointmentDate.getYear() + "-" + String.format("%02d", appointmentDate.getMonthValue());
+                    String monthKey = "hospital:common:schedule:doctor:" + doctorId + ":month:" + month;
+                    redisUtil.delete(monthKey);
+
+                    // 仅当预约日期为今日时，失效医生当日患者列表与今日统计缓存
+                    if (appointmentDate.equals(LocalDate.now())) {
                         redisUtil.delete("hospital:doctor:patient:list:pending:doctor:" + doctorId);
                         redisUtil.delete("hospital:doctor:patient:list:today:doctor:" + doctorId);
                         redisUtil.delete("hospital:doctor:patient:list:completed:doctor:" + doctorId);
@@ -240,6 +263,12 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
             }
             return Result.success(appointment);
 
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // 处理唯一约束冲突（数据库层面的双重保障）
+            log.warn("创建预约失败：唯一约束冲突，患者可能已有未完成预约。patientId={}, doctorId={}",
+                    appointment.getPatientId(), appointment.getDoctorId(), e);
+            return Result.error(ResultCode.PATIENT_HAS_UNFINISHED_APPOINTMENTS.getCode(),
+                    "该医生已预约过了");
         } catch (Exception e) {
             log.error("创建预约失败", e);
             return Result.error(ResultCode.DB_INSERT_ERROR.getCode(), "创建预约失败: " + e.getMessage());

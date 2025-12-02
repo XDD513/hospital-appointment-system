@@ -1,11 +1,10 @@
 package com.hospital.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.hospital.common.exception.BusinessException;
 import com.hospital.common.result.Result;
 import com.hospital.common.result.ResultCode;
-import com.hospital.entity.Schedule;
 import com.hospital.dto.request.BatchCreateScheduleRequest;
+import com.hospital.entity.Schedule;
 import com.hospital.mapper.ScheduleMapper;
 import com.hospital.service.ScheduleService;
 import com.hospital.util.RedisUtil;
@@ -14,11 +13,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.concurrent.TimeUnit;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.*;
-import java.time.LocalTime;
 
 @Slf4j
 @Service
@@ -50,24 +48,29 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
 
     @Override
     public Result<List<Schedule>> getDoctorScheduleByMonth(Long doctorId, String month) {
-        YearMonth yearMonth = YearMonth.parse(month);
-        LocalDate startDate = yearMonth.atDay(1);
-        LocalDate endDate = yearMonth.atEndOfMonth();
+        try {
+            YearMonth yearMonth = YearMonth.parse(month);
+            LocalDate startDate = yearMonth.atDay(1);
+            LocalDate endDate = yearMonth.atEndOfMonth();
 
-        String cacheKey = "hospital:common:schedule:doctor:" + doctorId + ":month:" + month;
-        Object cached = redisUtil.get(cacheKey);
-        if (cached instanceof List) {
-            try {
-                @SuppressWarnings("unchecked")
-                List<Schedule> list = (List<Schedule>) cached;
-                return Result.success(list);
-            } catch (ClassCastException ignored) {}
+            String cacheKey = "hospital:common:schedule:doctor:" + doctorId + ":month:" + month;
+            Object cached = redisUtil.get(cacheKey);
+            if (cached instanceof List) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    List<Schedule> list = (List<Schedule>) cached;
+                    return Result.success(list);
+                } catch (ClassCastException ignored) {}
+            }
+
+            List<Schedule> schedules = scheduleMapper.selectByDoctorIdAndDateRange(doctorId, startDate, endDate);
+            // 医生某月排班缓存（永不过期）
+            redisUtil.set(cacheKey, schedules);
+            return Result.success(schedules);
+        } catch (Exception e) {
+            log.error("查询医生某月排班失败: doctorId={}, month={}", doctorId, month, e);
+            return Result.error("查询排班失败: " + e.getMessage());
         }
-
-        List<Schedule> schedules = scheduleMapper.selectByDoctorIdAndDateRange(doctorId, startDate, endDate);
-        // 医生某月排班缓存（永不过期）
-        redisUtil.set(cacheKey, schedules);
-        return Result.success(schedules);
     }
 
     @Override
@@ -83,7 +86,7 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
 
         schedule.setRemainingQuota(schedule.getTotalQuota());
         schedule.setStatus("AVAILABLE"); // 可预约
-        
+
         scheduleMapper.insert(schedule);
         // 失效该医生的排班缓存
         if (schedule.getDoctorId() != null) {

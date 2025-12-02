@@ -259,18 +259,23 @@ public class ScheduleController {
      */
     @GetMapping("/doctor/{doctorId}")
     public Result<List<Schedule>> getDoctorSchedules(@PathVariable Long doctorId, @RequestParam Map<String, Object> params) {
-        QueryWrapper<Schedule> wrapper = new QueryWrapper<>();
-        wrapper.eq("doctor_id", doctorId);
-
-        // 月份筛选
-        if (params.containsKey("month") && StringUtils.hasText((String) params.get("month"))) {
-            String month = (String) params.get("month");
-            wrapper.likeRight("schedule_date", month);
+        try {
+            // 如果提供了月份参数，使用Service层的getDoctorScheduleByMonth方法（支持缓存）
+            if (params.containsKey("month") && StringUtils.hasText((String) params.get("month"))) {
+                String month = (String) params.get("month");
+                return scheduleService.getDoctorScheduleByMonth(doctorId, month);
+            }
+            
+            // 如果没有月份参数，查询所有排班
+            QueryWrapper<Schedule> wrapper = new QueryWrapper<>();
+            wrapper.eq("doctor_id", doctorId);
+            wrapper.orderByAsc("schedule_date", "time_slot");
+            List<Schedule> schedules = scheduleService.list(wrapper);
+            return Result.success(schedules);
+        } catch (Exception e) {
+            log.error("查询医生排班失败: doctorId={}", doctorId, e);
+            return Result.error("查询排班失败: " + e.getMessage());
         }
-
-        wrapper.orderByAsc("schedule_date", "time_slot");
-        List<Schedule> schedules = scheduleService.list(wrapper);
-        return Result.success(schedules);
     }
 
     /**

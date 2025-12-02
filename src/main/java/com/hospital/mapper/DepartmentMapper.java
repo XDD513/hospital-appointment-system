@@ -34,5 +34,13 @@ public interface DepartmentMapper extends BaseMapper<Department> {
      * SQL 定义在 DepartmentMapper.xml 中
      */
     List<Department> selectAllWithCategory();
+
+    /**
+     * 查询推荐到首页的科室列表
+     * SQL 定义在 DepartmentMapper.xml 中
+     *
+     * @return 推荐科室列表
+     */
+    List<Department> selectRecommendedList();
 }
 

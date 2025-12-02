@@ -49,6 +49,15 @@ public class DoctorController {
     }
 
     /**
+     * 查询推荐到首页的医生列表（给患者端使用）
+     */
+    @GetMapping("/list/recommended")
+    public Result<List<Doctor>> getRecommendedDoctorList() {
+        log.info("查询推荐医生列表");
+        return doctorService.getRecommendedDoctorList();
+    }
+
+    /**
      * 根据科室ID查询医生列表
      */
     @GetMapping("/list/dept/{deptId}")

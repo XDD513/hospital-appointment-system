@@ -47,5 +47,15 @@ public interface AppointmentMapper extends BaseMapper<Appointment> {
      */
     @Select("SELECT COUNT(*) FROM appointment WHERE user_id = #{patientId} AND status = 'CONFIRMED'")
     Integer countPendingByPatientId(@Param("patientId") Long patientId);
+
+    /**
+     * 查询患者对指定医生的未完成预约数量
+     * 未完成状态包括：PENDING_PAYMENT, PENDING_VISIT, CONFIRMED, IN_PROGRESS
+     * 已完成状态：COMPLETED, CANCELLED, NO_SHOW
+     */
+    @Select("SELECT COUNT(*) FROM appointment WHERE user_id = #{patientId} AND doctor_id = #{doctorId} " +
+            "AND status IN ('PENDING_PAYMENT', 'PENDING_VISIT', 'CONFIRMED', 'IN_PROGRESS')")
+    Integer countUnfinishedByPatientAndDoctor(@Param("patientId") Long patientId, 
+                                               @Param("doctorId") Long doctorId);
 }
 

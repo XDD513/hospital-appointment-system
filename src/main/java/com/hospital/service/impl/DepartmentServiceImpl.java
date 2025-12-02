@@ -95,6 +95,34 @@ public class DepartmentServiceImpl implements DepartmentService {
     }
 
     /**
+     * 查询推荐到首页的科室列表
+     */
+    @Override
+    public Result<List<Department>> getRecommendedDepartmentList() {
+        try {
+            String cacheKey = "hospital:common:dept:list:recommended";
+            Object cached = redisUtil.get(cacheKey);
+            if (cached instanceof List) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    List<Department> list = (List<Department>) cached;
+                    return Result.success(list);
+                } catch (ClassCastException ignored) {}
+            }
+
+            List<Department> departments = departmentMapper.selectRecommendedList();
+            // 设置兼容字段
+            departments.forEach(this::setCompatibilityFields);
+            // 推荐科室列表缓存（永久）
+            redisUtil.set(cacheKey, departments);
+            return Result.success(departments);
+        } catch (Exception e) {
+            log.error("查询推荐科室列表失败", e);
+            return Result.error("查询推荐科室列表失败");
+        }
+    }
+
+    /**
      * 查询启用状态的科室列表（按分类）
      */
     @Override
@@ -156,6 +184,9 @@ public class DepartmentServiceImpl implements DepartmentService {
         // 2. 设置默认值
         if (department.getStatus() == null) {
             department.setStatus(1); // 默认启用
+        }
+        if (department.getIsRecommended() == null) {
+            department.setIsRecommended(0); // 默认不推荐到首页
         }
         if (department.getSortOrder() == null) {
             department.setSortOrder(0);

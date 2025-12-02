@@ -47,6 +47,15 @@ public class DepartmentController {
     }
 
     /**
+     * 查询推荐到首页的科室列表（给患者端使用）
+     */
+    @GetMapping("/list/recommended")
+    public Result<List<Department>> getRecommendedDepartmentList() {
+        log.info("查询推荐科室列表");
+        return departmentService.getRecommendedDepartmentList();
+    }
+
+    /**
      * 查询启用状态的科室列表（按分类，患者端）
      */
     @GetMapping("/list/by-category/{categoryId}")

@@ -28,6 +28,13 @@ public interface DepartmentService {
     Result<List<Department>> getEnabledDepartmentList();
 
     /**
+     * 查询推荐到首页的科室列表
+     *
+     * @return 推荐科室列表
+     */
+    Result<List<Department>> getRecommendedDepartmentList();
+
+    /**
      * 查询启用状态的科室列表（按分类）
      *
      * @param categoryId 分类ID

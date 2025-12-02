@@ -96,6 +96,12 @@ public class Department implements Serializable {
     private Integer status;
 
     /**
+     * 是否推荐到首页（0-否 1-是）
+     */
+    @TableField("is_recommended")
+    private Integer isRecommended;
+
+    /**
      * 排序
      */
     @TableField("sort_order")

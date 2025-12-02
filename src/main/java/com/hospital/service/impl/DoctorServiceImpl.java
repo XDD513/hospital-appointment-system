@@ -201,6 +201,73 @@ public class DoctorServiceImpl implements DoctorService {
     }
 
     /**
+     * 查询推荐到首页的医生列表
+     */
+    @Override
+    public Result<List<Doctor>> getRecommendedDoctorList() {
+        try {
+            String cacheKey = "hospital:common:doctor:list:recommended";
+            Object cached = redisUtil.get(cacheKey);
+            if (cached instanceof List) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    List<Doctor> list = (List<Doctor>) cached;
+                    return Result.success(buildDoctorResponseList(list));
+                } catch (ClassCastException ignored) {}
+            }
+
+            List<Doctor> doctors = doctorMapper.selectRecommendedList();
+
+            // 手动关联分类名称和用户信息
+            for (Doctor doctor : doctors) {
+                // 关联分类名称
+                if (doctor.getCategoryId() != null) {
+                    try {
+                        com.hospital.entity.Department department = departmentMapper.selectById(doctor.getCategoryId());
+                        if (department != null) {
+                            doctor.setCategoryName(department.getCategoryName());
+                            doctor.setDeptName(department.getCategoryName()); // 兼容旧字段
+                        }
+                    } catch (Exception e) {
+                        log.warn("获取分类名称失败: categoryId={}", doctor.getCategoryId(), e);
+                    }
+                }
+                // 设置兼容字段
+                if (doctor.getCategoryId() != null && doctor.getDeptId() == null) {
+                    doctor.setDeptId(doctor.getCategoryId());
+                }
+
+                // 关联用户信息
+                if (doctor.getUserId() != null) {
+                    try {
+                        User user = userMapper.selectById(doctor.getUserId());
+                        if (user != null) {
+                            doctor.setGender(user.getGender());
+                            doctor.setBirthday(user.getBirthDate());
+                            doctor.setAvatar(user.getAvatar());
+                            if (doctor.getDoctorName() == null || doctor.getDoctorName().isEmpty()) {
+                                doctor.setDoctorName(user.getRealName());
+                            }
+                            if (doctor.getPhone() == null || doctor.getPhone().isEmpty()) {
+                                doctor.setPhone(user.getPhone());
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.warn("获取用户信息失败: userId={}", doctor.getUserId(), e);
+                    }
+                }
+            }
+
+            // 推荐医生列表缓存（永久）
+            redisUtil.set(cacheKey, doctors);
+            return Result.success(buildDoctorResponseList(doctors));
+        } catch (Exception e) {
+            log.error("查询推荐医生列表失败", e);
+            return Result.error("查询推荐医生列表失败");
+        }
+    }
+
+    /**
      * 根据科室ID查询医生列表
      */
     @Override
@@ -375,6 +442,9 @@ public class DoctorServiceImpl implements DoctorService {
             // 3. 设置默认值
             if (doctor.getStatus() == null) {
                 doctor.setStatus(1); // 默认在职
+            }
+            if (doctor.getIsRecommended() == null) {
+                doctor.setIsRecommended(0); // 默认不推荐到首页
             }
             if (doctor.getRating() == null) {
                 doctor.setRating(new java.math.BigDecimal("0.00"));

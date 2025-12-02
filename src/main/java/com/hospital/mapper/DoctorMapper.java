@@ -50,5 +50,13 @@ public interface DoctorMapper extends BaseMapper<Doctor> {
      */
     @Select("SELECT * FROM tcm_doctor WHERE status = 1")
     List<Doctor> selectEnabledList();
+
+    /**
+     * 查询推荐到首页的医生列表
+     *
+     * @return 推荐医生列表
+     */
+    @Select("SELECT * FROM tcm_doctor WHERE status = 1 AND is_recommended = 1 ORDER BY rating DESC, consultation_count DESC")
+    List<Doctor> selectRecommendedList();
 }
 

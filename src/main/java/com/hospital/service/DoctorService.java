@@ -28,6 +28,13 @@ public interface DoctorService {
     Result<List<Doctor>> getEnabledDoctorList();
 
     /**
+     * 查询推荐到首页的医生列表
+     *
+     * @return 推荐医生列表
+     */
+    Result<List<Doctor>> getRecommendedDoctorList();
+
+    /**
      * 根据科室ID查询医生列表
      *
      * @param deptId 科室ID
