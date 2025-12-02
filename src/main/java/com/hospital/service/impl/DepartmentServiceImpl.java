@@ -1,6 +1,7 @@
 package com.hospital.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.hospital.common.constant.CacheConstants;
 import com.hospital.common.exception.BusinessException;
 import com.hospital.common.result.Result;
 import com.hospital.common.result.ResultCode;
@@ -42,7 +43,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     public Result<List<Department>> getDepartmentList() {
         try {
-            String cacheKey = "hospital:common:dept:list";
+            String cacheKey = CacheConstants.DEPT_LIST_CACHE_KEY;
             Object cached = redisUtil.get(cacheKey);
             if (cached instanceof List) {
                 try {
@@ -72,7 +73,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     public Result<List<Department>> getEnabledDepartmentList() {
         try {
-            String cacheKey = "hospital:common:dept:list:enabled";
+            String cacheKey = CacheConstants.DEPT_LIST_ENABLED_CACHE_KEY;
             Object cached = redisUtil.get(cacheKey);
             if (cached instanceof List) {
                 try {
@@ -100,7 +101,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     public Result<List<Department>> getRecommendedDepartmentList() {
         try {
-            String cacheKey = "hospital:common:dept:list:recommended";
+            String cacheKey = CacheConstants.DEPT_LIST_RECOMMENDED_CACHE_KEY;
             Object cached = redisUtil.get(cacheKey);
             if (cached instanceof List) {
                 try {
@@ -128,7 +129,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     public Result<List<Department>> getEnabledDepartmentListByCategory(Integer categoryId) {
         try {
-            String cacheKey = "hospital:common:dept:list:category:" + categoryId;
+            String cacheKey = CacheConstants.DEPT_LIST_BY_CATEGORY_CACHE_PREFIX + categoryId;
             Object cached = redisUtil.get(cacheKey);
             if (cached instanceof List) {
                 try {
@@ -155,7 +156,7 @@ public class DepartmentServiceImpl implements DepartmentService {
      */
     @Override
     public Result<Department> getDepartmentById(Long id) {
-        String cacheKey = "hospital:common:dept:detail:id:" + id;
+        String cacheKey = CacheConstants.DEPT_DETAIL_CACHE_PREFIX + id;
         Object cached = redisUtil.get(cacheKey);
         if (cached instanceof Department) {
             return Result.success((Department) cached);
@@ -343,22 +344,28 @@ public class DepartmentServiceImpl implements DepartmentService {
             // 1. 刷新所有科室列表缓存
             List<Department> allDepartments = departmentMapper.selectAllWithCategory();
             allDepartments.forEach(this::setCompatibilityFields);
-            redisUtil.set("hospital:common:dept:list", allDepartments);
-            log.info("已刷新缓存: hospital:common:dept:list, 共{}条记录", allDepartments.size());
+            redisUtil.set(CacheConstants.DEPT_LIST_CACHE_KEY, allDepartments);
+            log.info("已刷新缓存: {}, 共{}条记录", CacheConstants.DEPT_LIST_CACHE_KEY, allDepartments.size());
 
             // 2. 刷新启用科室列表缓存
             List<Department> enabledDepartments = departmentMapper.selectEnabledList();
             enabledDepartments.forEach(this::setCompatibilityFields);
-            redisUtil.set("hospital:common:dept:list:enabled", enabledDepartments);
-            log.info("已刷新缓存: hospital:common:dept:list:enabled, 共{}条记录", enabledDepartments.size());
+            redisUtil.set(CacheConstants.DEPT_LIST_ENABLED_CACHE_KEY, enabledDepartments);
+            log.info("已刷新缓存: {}, 共{}条记录", CacheConstants.DEPT_LIST_ENABLED_CACHE_KEY, enabledDepartments.size());
 
-            // 3. 刷新按分类的启用科室列表缓存
-            redisUtil.deleteByPattern("hospital:common:dept:list:category:*");
-            log.info("已删除缓存: hospital:common:dept:list:category:*");
+            // 3. 刷新推荐科室列表缓存
+            List<Department> recommendedDepartments = departmentMapper.selectRecommendedList();
+            recommendedDepartments.forEach(this::setCompatibilityFields);
+            redisUtil.set(CacheConstants.DEPT_LIST_RECOMMENDED_CACHE_KEY, recommendedDepartments);
+            log.info("已刷新缓存: {}, 共{}条记录", CacheConstants.DEPT_LIST_RECOMMENDED_CACHE_KEY, recommendedDepartments.size());
 
-            // 4. 刷新所有科室详情缓存
+            // 4. 刷新按分类的启用科室列表缓存
+            redisUtil.deleteByPattern(CacheConstants.DEPT_LIST_BY_CATEGORY_CACHE_PREFIX + "*");
+            log.info("已删除缓存: {}*", CacheConstants.DEPT_LIST_BY_CATEGORY_CACHE_PREFIX);
+
+            // 5. 刷新所有科室详情缓存
             for (Department dept : allDepartments) {
-                redisUtil.set("hospital:common:dept:detail:id:" + dept.getId(), dept);
+                redisUtil.set(CacheConstants.DEPT_DETAIL_CACHE_PREFIX + dept.getId(), dept);
             }
             log.info("已刷新{}个科室详情缓存", allDepartments.size());
 

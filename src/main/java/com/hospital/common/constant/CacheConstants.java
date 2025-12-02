@@ -41,10 +41,20 @@ public class CacheConstants {
     public static final String DICT_LIST_CACHE_KEY = REDIS_KEY_PREFIX + "admin:dict:list";
 
     /**
+     * 科室相关缓存键
+     */
+    public static final String DEPT_LIST_CACHE_KEY = REDIS_KEY_PREFIX + "common:dept:list";
+    public static final String DEPT_LIST_ENABLED_CACHE_KEY = REDIS_KEY_PREFIX + "common:dept:list:enabled";
+    public static final String DEPT_LIST_RECOMMENDED_CACHE_KEY = REDIS_KEY_PREFIX + "common:dept:list:recommended";
+    public static final String DEPT_LIST_BY_CATEGORY_CACHE_PREFIX = REDIS_KEY_PREFIX + "common:dept:list:category:";
+    public static final String DEPT_DETAIL_CACHE_PREFIX = REDIS_KEY_PREFIX + "common:dept:detail:id:";
+
+    /**
      * 医生相关缓存键
      */
     public static final String DOCTOR_LIST_CACHE_KEY = REDIS_KEY_PREFIX + "common:doctor:list";
     public static final String DOCTOR_LIST_ENABLED_CACHE_KEY = REDIS_KEY_PREFIX + "common:doctor:list:enabled";
+    public static final String DOCTOR_LIST_RECOMMENDED_CACHE_KEY = REDIS_KEY_PREFIX + "common:doctor:list:recommended";
     public static final String DOCTOR_LIST_BY_DEPT_CACHE_PREFIX = REDIS_KEY_PREFIX + "common:doctor:list:dept:";
 
     /**

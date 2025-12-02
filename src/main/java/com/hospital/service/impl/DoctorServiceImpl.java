@@ -206,7 +206,7 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     public Result<List<Doctor>> getRecommendedDoctorList() {
         try {
-            String cacheKey = "hospital:common:doctor:list:recommended";
+            String cacheKey = CacheConstants.DOCTOR_LIST_RECOMMENDED_CACHE_KEY;
             Object cached = redisUtil.get(cacheKey);
             if (cached instanceof List) {
                 try {
@@ -771,11 +771,19 @@ public class DoctorServiceImpl implements DoctorService {
             redisUtil.set(CacheConstants.DOCTOR_LIST_ENABLED_CACHE_KEY, enabledDoctors);
             log.info("已刷新缓存: hospital:common:doctor:list:enabled, 共{}条记录", enabledDoctors.size());
 
-            // 3. 刷新按科室的医生列表缓存
+            // 3. 刷新推荐医生列表缓存
+            List<Doctor> recommendedDoctors = doctorMapper.selectRecommendedList();
+            for (Doctor doctor : recommendedDoctors) {
+                enrichDoctorInfo(doctor);
+            }
+            redisUtil.set(CacheConstants.DOCTOR_LIST_RECOMMENDED_CACHE_KEY, recommendedDoctors);
+            log.info("已刷新缓存: {}, 共{}条记录", CacheConstants.DOCTOR_LIST_RECOMMENDED_CACHE_KEY, recommendedDoctors.size());
+
+            // 4. 刷新按科室的医生列表缓存
             redisUtil.deleteByPattern(CacheConstants.DOCTOR_LIST_BY_DEPT_CACHE_PREFIX + "*");
             log.info("已删除缓存: hospital:common:doctor:list:dept:*");
 
-            // 4. 刷新所有医生详情缓存
+            // 5. 刷新所有医生详情缓存
             for (Doctor doctor : allDoctors) {
                 redisUtil.set(CacheConstants.CACHE_DOCTOR_PREFIX + doctor.getId(), doctor);
                 if (doctor.getUserId() != null) {
