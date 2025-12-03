@@ -211,12 +211,17 @@
                 WHEN cr.consultation_date IS NOT NULL AND cr.consultation_time IS NOT NULL
                 THEN CONCAT(DATE_FORMAT(cr.consultation_date, '%Y-%m-%d'), ' ', TIME_FORMAT(cr.consultation_time, '%H:%i:%s'))
                 ELSE NULL
-            END as consultationDateTime
+            END as consultationDateTime,
+            CASE
+                WHEN r.id IS NOT NULL THEN 1
+                ELSE 0
+            END as hasReview
         FROM consultation_record cr
         LEFT JOIN user u ON cr.patient_id = u.id
         LEFT JOIN tcm_doctor d ON cr.doctor_id = d.id
         LEFT JOIN tcm_category c ON cr.category_id = c.id
         LEFT JOIN appointment a ON cr.appointment_id = a.id
+        LEFT JOIN review r ON r.appointment_id = cr.appointment_id AND r.status = 'PUBLISHED'
         WHERE cr.patient_id = #{params.patientId}
         <if test="params.startDate != null and params.startDate != ''">
             AND cr.consultation_date >= #{params.startDate}

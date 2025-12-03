@@ -1,5 +1,6 @@
 package com.hospital.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -7,8 +8,10 @@ import com.hospital.common.constant.CacheConstants;
 import com.hospital.common.constant.SystemConstants;
 import com.hospital.config.AvatarConfig;
 import com.hospital.entity.Appointment;
+import com.hospital.entity.ConsultationRecord;
 import com.hospital.entity.Review;
 import com.hospital.mapper.AppointmentMapper;
+import com.hospital.mapper.ConsultationRecordMapper;
 import com.hospital.mapper.ReviewMapper;
 import com.hospital.service.OssService;
 import com.hospital.service.ReviewService;
@@ -35,6 +38,9 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
 
     @Autowired
     private AppointmentMapper appointmentMapper;
+
+    @Autowired
+    private ConsultationRecordMapper consultationRecordMapper;
 
     @Autowired
     private RedisUtil redisUtil;
@@ -132,19 +138,39 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
     public boolean createReview(Review review) {
         log.info("创建评价，预约ID：{}，患者ID：{}", review.getAppointmentId(), review.getPatientId());
 
-        // 如果patientId为空，尝试从appointmentId获取
-        if (review.getPatientId() == null && review.getAppointmentId() != null) {
+        // 如果appointmentId不为空，从预约信息中获取相关字段
+        if (review.getAppointmentId() != null) {
             Appointment appointment = appointmentMapper.selectById(review.getAppointmentId());
             if (appointment != null) {
-                review.setPatientId(appointment.getPatientId());
-                // 同时设置categoryId和doctorId（如果为空）
+                // 设置patientId（如果为空）
+                if (review.getPatientId() == null) {
+                    review.setPatientId(appointment.getPatientId());
+                }
+                // 设置categoryId（如果为空）
                 if (review.getCategoryId() == null) {
                     review.setCategoryId(appointment.getCategoryId());
                 }
+                // 设置doctorId（如果为空）
                 if (review.getDoctorId() == null) {
                     review.setDoctorId(appointment.getDoctorId());
                 }
-                log.info("从预约信息中获取患者ID：{}，分类ID：{}", review.getPatientId(), review.getCategoryId());
+                log.info("从预约信息中获取患者ID：{}，分类ID：{}，医生ID：{}",
+                    review.getPatientId(), review.getCategoryId(), review.getDoctorId());
+
+                // 根据appointmentId查询接诊记录ID
+                if (review.getConsultationRecordId() == null) {
+                    QueryWrapper<ConsultationRecord> wrapper = new QueryWrapper<>();
+                    wrapper.eq("appointment_id", review.getAppointmentId());
+                    wrapper.orderByDesc("created_at");
+                    wrapper.last("LIMIT 1");
+                    ConsultationRecord consultationRecord = consultationRecordMapper.selectOne(wrapper);
+                    if (consultationRecord != null) {
+                        review.setConsultationRecordId(consultationRecord.getId());
+                        log.info("从接诊记录中获取接诊记录ID：{}", review.getConsultationRecordId());
+                    } else {
+                        log.warn("未找到对应的接诊记录，appointmentId={}", review.getAppointmentId());
+                    }
+                }
             } else {
                 log.warn("预约不存在，appointmentId={}", review.getAppointmentId());
             }
