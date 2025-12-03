@@ -4,10 +4,12 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.hospital.common.result.Result;
 import com.hospital.entity.ConsultationRecord;
 import com.hospital.service.ConsultationRecordService;
+import com.hospital.util.JwtUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
@@ -22,6 +24,9 @@ public class ConsultationController {
 
     @Autowired
     private ConsultationRecordService consultationRecordService;
+
+    @Autowired
+    private JwtUtil jwtUtil;
 
     /**
      * 获取医生接诊记录列表
@@ -93,5 +98,22 @@ public class ConsultationController {
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment; filename=consultation_records.xlsx");
         response.getOutputStream().write(data);
+    }
+
+    /**
+     * 获取患者接诊记录列表
+     */
+    @GetMapping("/patient/records")
+    public Result<IPage<ConsultationRecord>> getPatientRecords(
+            @RequestParam Map<String, Object> params,
+            HttpServletRequest request) {
+        // 从JWT中获取患者ID
+        Long patientId = jwtUtil.getUserIdFromRequest(request);
+        if (patientId == null) {
+            return Result.error("未登录或登录已过期");
+        }
+        params.put("patientId", patientId);
+        IPage<ConsultationRecord> records = consultationRecordService.getPatientRecords(params);
+        return Result.success(records);
     }
 }

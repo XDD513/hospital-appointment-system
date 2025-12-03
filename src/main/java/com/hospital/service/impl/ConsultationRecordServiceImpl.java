@@ -210,6 +210,9 @@ public class ConsultationRecordServiceImpl extends ServiceImpl<ConsultationRecor
                     redisUtil.delete("hospital:doctor:patient:list:completed:doctor:" + doctorId);
                     String todayKey = "hospital:doctor:stats:today:doctor:" + doctorId + ":date:" + java.time.LocalDate.now();
                     redisUtil.delete(todayKey);
+                    // 失效医生接诊记录列表缓存
+                    redisUtil.deleteByPattern("hospital:doctor:consultation:list:*");
+                    log.info("已失效医生接诊记录列表缓存，doctorId={}", doctorId);
                 }
             } catch (Exception e) {
                 log.warn("开始接诊后失效缓存失败: appointmentId={}, error={}", consultationRecord.getAppointmentId(), e.getMessage());
@@ -265,6 +268,9 @@ public class ConsultationRecordServiceImpl extends ServiceImpl<ConsultationRecor
                 redisUtil.delete("hospital:doctor:patient:list:completed:doctor:" + doctorId);
                 String todayKey = "hospital:doctor:stats:today:doctor:" + doctorId + ":date:" + LocalDate.now();
                 redisUtil.delete(todayKey);
+                // 失效医生接诊记录列表缓存
+                redisUtil.deleteByPattern("hospital:doctor:consultation:list:*");
+                log.info("已失效医生接诊记录列表缓存，doctorId={}", doctorId);
             }
         } catch (Exception e) {
             log.warn("开始接诊后失效缓存失败: appointmentId={}, error={}", appointmentId, e.getMessage());
@@ -387,10 +393,16 @@ public class ConsultationRecordServiceImpl extends ServiceImpl<ConsultationRecor
                 redisUtil.delete("hospital:doctor:patient:list:completed:doctor:" + doctorId);
                 String todayKey = "hospital:doctor:stats:today:doctor:" + doctorId + ":date:" + java.time.LocalDate.now();
                 redisUtil.delete(todayKey);
+                // 失效医生接诊记录列表缓存
+                redisUtil.deleteByPattern("hospital:doctor:consultation:list:*");
+                log.info("已失效医生接诊记录列表缓存，doctorId={}", doctorId);
             }
             // 失效患者最近预约缓存（无论预约日期是否为今日，都应刷新）
             if (patientId != null) {
                 redisUtil.delete("hospital:patient:stats:appointments:recent:patient:" + patientId);
+                // 失效患者接诊记录列表缓存
+                redisUtil.deleteByPattern("hospital:patient:consultation:list:*");
+                log.info("已失效患者接诊记录列表缓存，patientId={}", patientId);
             }
         } catch (Exception e) {
             log.warn("完成接诊后失效缓存失败: appointmentId={}, error={}", appointmentId, e.getMessage());
@@ -590,5 +602,60 @@ public class ConsultationRecordServiceImpl extends ServiceImpl<ConsultationRecor
     public ConsultationRecord getConsultationRecordDetail(Long id) {
         log.info("获取接诊记录详情，记录ID：{}", id);
         return consultationRecordMapper.selectRecordDetailById(id);
+    }
+
+    @Override
+    public IPage<ConsultationRecord> getPatientRecords(Map<String, Object> params) {
+        log.info("分页查询患者接诊记录，参数：{}", params);
+
+        // 安全地解析分页参数
+        Integer page = 1;
+        Integer pageSize = SystemConstants.DEFAULT_PAGE_SIZE;
+
+        try {
+            if (params.get("page") != null || params.get("pageNum") != null) {
+                Object pageObj = params.get("page") != null ? params.get("page") : params.get("pageNum");
+                page = Integer.parseInt(pageObj.toString());
+            }
+        } catch (NumberFormatException e) {
+            log.warn("无效的页码参数：{}", params.get("page"));
+        }
+
+        try {
+            if (params.get("pageSize") != null) {
+                pageSize = Integer.parseInt(params.get("pageSize").toString());
+            }
+        } catch (NumberFormatException e) {
+            log.warn("无效的页面大小参数：{}", params.get("pageSize"));
+        }
+
+        // 缓存键
+        Map<String, Object> filterParams = new java.util.HashMap<>(params);
+        filterParams.remove("page");
+        filterParams.remove("pageNum");
+        filterParams.remove("pageSize");
+        filterParams.remove("patientId"); // patientId已经在前缀中
+        String cacheKey = redisUtil.buildCacheKey("hospital:patient:consultation:list", page, pageSize, filterParams);
+
+        if (page <= 2) {
+            Object cached = redisUtil.get(cacheKey);
+            if (cached instanceof IPage) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    IPage<ConsultationRecord> cachedPage = (IPage<ConsultationRecord>) cached;
+                    return cachedPage;
+                } catch (ClassCastException ignored) {}
+            }
+        }
+
+        Page<ConsultationRecord> pageObject = new Page<>(page, pageSize);
+        IPage<ConsultationRecord> result = consultationRecordMapper.selectPatientRecords(pageObject, params);
+
+        // 缓存前2页（5分钟）
+        if (page <= 2) {
+            redisUtil.set(cacheKey, result, 5, java.util.concurrent.TimeUnit.MINUTES);
+        }
+
+        return result;
     }
 }
