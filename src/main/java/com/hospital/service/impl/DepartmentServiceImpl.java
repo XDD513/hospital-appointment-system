@@ -10,13 +10,16 @@ import com.hospital.entity.Doctor;
 import com.hospital.mapper.DepartmentMapper;
 import com.hospital.mapper.DoctorMapper;
 import com.hospital.service.DepartmentService;
+import com.hospital.service.OssService;
 import com.hospital.util.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 科室服务实现类
@@ -37,6 +40,9 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Autowired
     private RedisUtil redisUtil;
 
+    @Autowired
+    private OssService ossService;
+
     /**
      * 查询所有科室列表
      */
@@ -56,8 +62,11 @@ public class DepartmentServiceImpl implements DepartmentService {
             // 查询中医分类列表
             List<Department> departments = departmentMapper.selectAllWithCategory();
 
-            // 设置兼容字段
-            departments.forEach(this::setCompatibilityFields);
+            // 设置兼容字段并处理图标URL
+            departments.forEach(dept -> {
+                setCompatibilityFields(dept);
+                resolveIconUrl(dept);
+            });
             // 科室列表缓存（永久）
             redisUtil.set(cacheKey, departments);
             return Result.success(departments);
@@ -84,8 +93,11 @@ public class DepartmentServiceImpl implements DepartmentService {
             }
 
             List<Department> departments = departmentMapper.selectEnabledList();
-            // 设置兼容字段
-            departments.forEach(this::setCompatibilityFields);
+            // 设置兼容字段并处理图标URL
+            departments.forEach(dept -> {
+                setCompatibilityFields(dept);
+                resolveIconUrl(dept);
+            });
             // 启用科室列表缓存（永久）
             redisUtil.set(cacheKey, departments);
             return Result.success(departments);
@@ -112,8 +124,11 @@ public class DepartmentServiceImpl implements DepartmentService {
             }
 
             List<Department> departments = departmentMapper.selectRecommendedList();
-            // 设置兼容字段
-            departments.forEach(this::setCompatibilityFields);
+            // 设置兼容字段并处理图标URL
+            departments.forEach(dept -> {
+                setCompatibilityFields(dept);
+                resolveIconUrl(dept);
+            });
             // 推荐科室列表缓存（永久）
             redisUtil.set(cacheKey, departments);
             return Result.success(departments);
@@ -140,8 +155,11 @@ public class DepartmentServiceImpl implements DepartmentService {
             }
 
             List<Department> departments = departmentMapper.selectEnabledListByCategoryId(categoryId);
-            // 设置兼容字段
-            departments.forEach(this::setCompatibilityFields);
+            // 设置兼容字段并处理图标URL
+            departments.forEach(dept -> {
+                setCompatibilityFields(dept);
+                resolveIconUrl(dept);
+            });
             // 指定分类的启用科室列表缓存（永久）
             redisUtil.set(cacheKey, departments);
             return Result.success(departments);
@@ -166,8 +184,9 @@ public class DepartmentServiceImpl implements DepartmentService {
         if (department == null) {
             return Result.error(ResultCode.DEPARTMENT_NOT_FOUND);
         }
-        // 设置兼容字段
+        // 设置兼容字段并处理图标URL
         setCompatibilityFields(department);
+        resolveIconUrl(department);
         // 科室详情缓存（永久）
         redisUtil.set(cacheKey, department);
         return Result.success(department);
@@ -343,19 +362,28 @@ public class DepartmentServiceImpl implements DepartmentService {
 
             // 1. 刷新所有科室列表缓存
             List<Department> allDepartments = departmentMapper.selectAllWithCategory();
-            allDepartments.forEach(this::setCompatibilityFields);
+            allDepartments.forEach(dept -> {
+                setCompatibilityFields(dept);
+                resolveIconUrl(dept);
+            });
             redisUtil.set(CacheConstants.DEPT_LIST_CACHE_KEY, allDepartments);
             log.info("已刷新缓存: {}, 共{}条记录", CacheConstants.DEPT_LIST_CACHE_KEY, allDepartments.size());
 
             // 2. 刷新启用科室列表缓存
             List<Department> enabledDepartments = departmentMapper.selectEnabledList();
-            enabledDepartments.forEach(this::setCompatibilityFields);
+            enabledDepartments.forEach(dept -> {
+                setCompatibilityFields(dept);
+                resolveIconUrl(dept);
+            });
             redisUtil.set(CacheConstants.DEPT_LIST_ENABLED_CACHE_KEY, enabledDepartments);
             log.info("已刷新缓存: {}, 共{}条记录", CacheConstants.DEPT_LIST_ENABLED_CACHE_KEY, enabledDepartments.size());
 
             // 3. 刷新推荐科室列表缓存
             List<Department> recommendedDepartments = departmentMapper.selectRecommendedList();
-            recommendedDepartments.forEach(this::setCompatibilityFields);
+            recommendedDepartments.forEach(dept -> {
+                setCompatibilityFields(dept);
+                resolveIconUrl(dept);
+            });
             redisUtil.set(CacheConstants.DEPT_LIST_RECOMMENDED_CACHE_KEY, recommendedDepartments);
             log.info("已刷新缓存: {}, 共{}条记录", CacheConstants.DEPT_LIST_RECOMMENDED_CACHE_KEY, recommendedDepartments.size());
 
@@ -365,6 +393,7 @@ public class DepartmentServiceImpl implements DepartmentService {
 
             // 5. 刷新所有科室详情缓存
             for (Department dept : allDepartments) {
+                resolveIconUrl(dept);
                 redisUtil.set(CacheConstants.DEPT_DETAIL_CACHE_PREFIX + dept.getId(), dept);
             }
             log.info("已刷新{}个科室详情缓存", allDepartments.size());
@@ -375,6 +404,99 @@ public class DepartmentServiceImpl implements DepartmentService {
             // 重新抛出异常，让调用方知道缓存刷新失败
             throw new RuntimeException("Redis缓存刷新失败", e);
         }
+    }
+
+    /**
+     * 处理科室图标URL（带缓存优化）
+     * 先检查Redis缓存，如果存在且未过期则更新TTL，如果过期或不存在则重新生成
+     * 参考 SystemServiceImpl.resolveAvatarUrlWithCache 的实现
+     *
+     * @param department 科室对象
+     */
+    private void resolveIconUrl(Department department) {
+        if (department == null) {
+            return;
+        }
+
+        String rawIcon = department.getIcon();
+        if (!StringUtils.hasText(rawIcon)) {
+            return;
+        }
+
+        // 清理图标URL（移除已有的签名参数）
+        String sanitizedIcon = sanitizeIconUrl(rawIcon);
+        if (!StringUtils.hasText(sanitizedIcon)) {
+            return;
+        }
+
+        // 如果不是OSS URL，直接返回
+        if (!sanitizedIcon.contains("oss-cn-")) {
+            department.setIcon(sanitizedIcon);
+            return;
+        }
+
+        // 构建缓存键
+        String cacheKey = CacheConstants.CACHE_OSS_SIGNED_URL_PREFIX + sanitizedIcon;
+
+        try {
+            // 先检查Redis中是否存在缓存
+            Object cached = redisUtil.get(cacheKey);
+            if (cached != null && cached instanceof String) {
+                // 缓存存在，检查是否过期
+                Long expireTime = redisUtil.getExpire(cacheKey);
+                if (expireTime != null && expireTime > 0) {
+                    // 缓存未过期，重置TTL（续期）
+                    redisUtil.expire(cacheKey, CacheConstants.CACHE_OSS_SIGNED_URL_TTL_SECONDS, TimeUnit.SECONDS);
+                    department.setIcon((String) cached);
+                    return;
+                } else {
+                    // 缓存已过期或即将过期，删除旧缓存
+                    redisUtil.delete(cacheKey);
+                }
+            }
+
+            // 缓存不存在或已过期，生成新的签名URL（使用60分钟有效期）
+            String signedUrl = ossService.generatePresignedUrl(sanitizedIcon, 60);
+            // 检查是否成功生成签名URL（签名URL应该包含签名参数）
+            boolean isSignedUrl = StringUtils.hasText(signedUrl) &&
+                (signedUrl.contains("Signature=") || signedUrl.contains("OSSAccessKeyId=") || signedUrl.contains("Expires="));
+
+            if (isSignedUrl) {
+                // 存入缓存，TTL设置为55分钟（略小于签名URL的60分钟有效期）
+                redisUtil.set(cacheKey, signedUrl, CacheConstants.CACHE_OSS_SIGNED_URL_TTL_SECONDS, TimeUnit.SECONDS);
+                department.setIcon(signedUrl);
+            } else {
+                // 生成签名URL失败，使用原始URL
+                log.warn("生成科室图标签名URL失败，使用原始URL: icon={}, signedUrl={}", sanitizedIcon, signedUrl);
+                department.setIcon(sanitizedIcon);
+            }
+        } catch (Exception e) {
+            log.warn("处理科室图标签名URL失败，使用原始URL: icon={}, error={}", sanitizedIcon, e.getMessage());
+            // 异常时使用原始URL
+            department.setIcon(sanitizedIcon);
+        }
+    }
+
+    /**
+     * 清理图标URL（移除查询参数等）
+     * 移除OSS签名参数，只保留原始URL
+     */
+    private String sanitizeIconUrl(String iconUrl) {
+        if (!StringUtils.hasText(iconUrl)) {
+            return null;
+        }
+        String sanitized = iconUrl.trim();
+        // 检查是否包含OSS签名参数
+        boolean containsSignatureParam = sanitized.contains("Signature=") || sanitized.contains("OSSAccessKeyId=")
+                || sanitized.contains("Expires=");
+        if (containsSignatureParam) {
+            // 移除?号及其后面的所有参数
+            int questionIndex = sanitized.indexOf('?');
+            if (questionIndex > 0) {
+                sanitized = sanitized.substring(0, questionIndex);
+            }
+        }
+        return sanitized;
     }
 }
 
