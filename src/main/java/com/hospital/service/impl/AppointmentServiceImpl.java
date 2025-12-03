@@ -121,19 +121,47 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
             }
 
             // 2. 校验排班并设置 scheduleId / deptId，同时生成排队号
-            // 根据医生、日期、时段查找排班
-            com.hospital.entity.Schedule schedule = scheduleMapper.selectByDoctorDateSlot(
-                appointment.getDoctorId(),
-                appointment.getAppointmentDate(),
-                appointment.getTimeSlot()
-            );
-            if (schedule == null) {
-                return Result.error(ResultCode.SCHEDULE_NOT_FOUND.getCode(), "该医生在所选日期/时段无排班");
+            // 优先使用 scheduleId 查询排班，如果不存在则使用 doctorId + date + timeSlot 查询
+            com.hospital.entity.Schedule schedule = null;
+            if (appointment.getScheduleId() != null) {
+                // 如果前端传递了 scheduleId，优先使用 scheduleId 查询（避免精度丢失问题）
+                schedule = scheduleMapper.selectById(appointment.getScheduleId());
+                if (schedule == null) {
+                    return Result.error(ResultCode.SCHEDULE_NOT_FOUND.getCode(), "排班不存在");
+                }
+                // 验证排班的 doctorId 是否与传递的 doctorId 一致（防止参数不匹配）
+                if (schedule.getDoctorId() == null || appointment.getDoctorId() == null ||
+                    !schedule.getDoctorId().equals(appointment.getDoctorId())) {
+                    log.warn("排班与医生不匹配: scheduleId={}, scheduleDoctorId={}, requestDoctorId={}",
+                        appointment.getScheduleId(), schedule.getDoctorId(), appointment.getDoctorId());
+                    return Result.error(ResultCode.PARAM_ERROR.getCode(), "排班与医生不匹配");
+                }
+                // 验证排班的日期和时段是否与传递的参数一致
+                if (schedule.getScheduleDate() == null || appointment.getAppointmentDate() == null ||
+                    !schedule.getScheduleDate().equals(appointment.getAppointmentDate()) ||
+                    schedule.getTimeSlot() == null || appointment.getTimeSlot() == null ||
+                    !schedule.getTimeSlot().equals(appointment.getTimeSlot())) {
+                    log.warn("排班日期或时段不匹配: scheduleId={}, scheduleDate={}, requestDate={}, scheduleSlot={}, requestSlot={}",
+                        appointment.getScheduleId(), schedule.getScheduleDate(), appointment.getAppointmentDate(),
+                        schedule.getTimeSlot(), appointment.getTimeSlot());
+                    return Result.error(ResultCode.PARAM_ERROR.getCode(), "排班日期或时段不匹配");
+                }
+            } else {
+                // 如果没有传递 scheduleId，使用 doctorId + date + timeSlot 查询（向后兼容）
+                schedule = scheduleMapper.selectByDoctorDateSlot(
+                    appointment.getDoctorId(),
+                    appointment.getAppointmentDate(),
+                    appointment.getTimeSlot()
+                );
+                if (schedule == null) {
+                    return Result.error(ResultCode.SCHEDULE_NOT_FOUND.getCode(), "该医生在所选日期/时段无排班");
+                }
             }
             // 检查号源是否充足
             if (schedule.getRemainingQuota() == null || schedule.getRemainingQuota() <= 0) {
                 return Result.error(ResultCode.SCHEDULE_FULL);
             }
+            // 确保 scheduleId 已设置
             appointment.setScheduleId(schedule.getId());
             // 关联分类ID（必填字段）
             try {
