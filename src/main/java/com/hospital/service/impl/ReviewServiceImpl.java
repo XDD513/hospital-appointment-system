@@ -6,7 +6,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hospital.common.constant.CacheConstants;
 import com.hospital.common.constant.SystemConstants;
 import com.hospital.config.AvatarConfig;
+import com.hospital.entity.Appointment;
 import com.hospital.entity.Review;
+import com.hospital.mapper.AppointmentMapper;
 import com.hospital.mapper.ReviewMapper;
 import com.hospital.service.OssService;
 import com.hospital.service.ReviewService;
@@ -30,6 +32,9 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
 
     @Autowired
     private ReviewMapper reviewMapper;
+
+    @Autowired
+    private AppointmentMapper appointmentMapper;
 
     @Autowired
     private RedisUtil redisUtil;
@@ -125,7 +130,35 @@ public class ReviewServiceImpl extends ServiceImpl<ReviewMapper, Review> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean createReview(Review review) {
-        log.info("创建评价，预约ID：{}", review.getAppointmentId());
+        log.info("创建评价，预约ID：{}，患者ID：{}", review.getAppointmentId(), review.getPatientId());
+
+        // 如果patientId为空，尝试从appointmentId获取
+        if (review.getPatientId() == null && review.getAppointmentId() != null) {
+            Appointment appointment = appointmentMapper.selectById(review.getAppointmentId());
+            if (appointment != null) {
+                review.setPatientId(appointment.getPatientId());
+                // 同时设置categoryId和doctorId（如果为空）
+                if (review.getCategoryId() == null) {
+                    review.setCategoryId(appointment.getCategoryId());
+                }
+                if (review.getDoctorId() == null) {
+                    review.setDoctorId(appointment.getDoctorId());
+                }
+                log.info("从预约信息中获取患者ID：{}，分类ID：{}", review.getPatientId(), review.getCategoryId());
+            } else {
+                log.warn("预约不存在，appointmentId={}", review.getAppointmentId());
+            }
+        }
+
+        // 验证必填字段
+        if (review.getPatientId() == null) {
+            log.error("创建评价失败：患者ID为空");
+            throw new IllegalArgumentException("患者ID不能为空");
+        }
+        if (review.getDoctorId() == null) {
+            log.error("创建评价失败：医生ID为空");
+            throw new IllegalArgumentException("医生ID不能为空");
+        }
 
         // 设置评价状态为已发布（患者提交后直接发布）
         if (review.getStatus() == null || review.getStatus().isEmpty()) {

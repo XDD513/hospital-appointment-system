@@ -4,10 +4,12 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.hospital.common.result.Result;
 import com.hospital.entity.Review;
 import com.hospital.service.ReviewService;
+import com.hospital.util.JwtUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.Map;
 
 /**
@@ -20,6 +22,9 @@ public class ReviewController {
 
     @Autowired
     private ReviewService reviewService;
+
+    @Autowired
+    private JwtUtil jwtUtil;
 
     /**
      * 获取医生评价列表
@@ -43,7 +48,13 @@ public class ReviewController {
      * 创建评价
      */
     @PostMapping("/create")
-    public Result<Boolean> createReview(@RequestBody Review review) {
+    public Result<Boolean> createReview(@RequestBody Review review, HttpServletRequest request) {
+        // 从JWT中获取患者ID
+        Long patientId = jwtUtil.getUserIdFromRequest(request);
+        if (patientId == null) {
+            return Result.error("未登录或登录已过期");
+        }
+        review.setPatientId(patientId);
         boolean result = reviewService.createReview(review);
         return Result.success(result);
     }
